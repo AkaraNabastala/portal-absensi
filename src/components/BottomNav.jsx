@@ -1,0 +1,232 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { 
+    LayoutDashboard, 
+    CalendarDays, 
+    BarChart3, 
+    FileText, 
+    User, 
+    GraduationCap, 
+    MoreHorizontal,
+    CheckSquare,
+    Users,
+    X,
+    ChevronRight
+} from 'lucide-react';
+
+export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
+    const isTeacher = currentUser?.role === 'TEACHER';
+    const isWaliKelas = isTeacher && currentUser?.teacher?.is_wali_kelas;
+    const [showMoreMenu, setShowMoreMenu] = useState(false);
+    const menuRef = useRef(null);
+
+    // Tutup popup jika klik di luar
+    useEffect(() => {
+        function handleClickOutside(e) {
+            if (menuRef.current && !menuRef.current.contains(e.target)) {
+                setShowMoreMenu(false);
+            }
+        }
+        if (showMoreMenu) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('touchstart', handleClickOutside);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('touchstart', handleClickOutside);
+        };
+    }, [showMoreMenu]);
+
+    // 0. Menu Navigasi Utama untuk Administrator
+    const adminPrimaryItems = [
+        { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'ekskul', label: 'Ekskul', icon: Users },
+        { id: 'sync', label: 'Sync', icon: FileText },
+    ];
+
+    // 1. Menu Navigasi Utama untuk Siswa / Wali Murid
+    const parentPrimaryItems = [
+        { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'daily', label: 'Presensi', icon: CalendarDays },
+        { id: 'leave', label: 'Izin', icon: FileText },
+        { id: 'profile', label: 'Biodata', icon: User },
+    ];
+
+    // 2. Menu Navigasi Utama untuk Guru (Bukan Wali Kelas)
+    const teacherStandardItems = [
+        { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'daily', label: 'Presensi', icon: CalendarDays },
+        { id: 'leave', label: 'Izin', icon: FileText },
+        { id: 'profile', label: 'Biodata', icon: User },
+    ];
+
+    // 3. Menu Navigasi Utama untuk Guru Wali Kelas:
+    // Menu bawah TETAP FOKUS PADA MENU PRIBADI GURU (Beranda, Presensi, Izin, Biodata)
+    // dan tombol ke-5 adalah Lainnya (...) untuk membuka menu Wali Kelas
+    const waliPrimaryItems = [
+        { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'daily', label: 'Presensi', icon: CalendarDays },
+        { id: 'leave', label: 'Izin', icon: FileText },
+        { id: 'profile', label: 'Biodata', icon: User },
+        { id: 'more', label: 'Lainnya', icon: MoreHorizontal, isAction: true },
+    ];
+
+    const assignedClass = currentUser?.teacher?.assigned_division || 'Binaan';
+
+    // Menu tambahan yang tampil di popup drawer "Lainnya" (...)
+    const waliDrawerItems = [
+        {
+            section: `Kelas ${assignedClass}`,
+            items: [
+                { id: 'class_daily', label: 'Presensi', desc: 'Presensi harian siswa', icon: CalendarDays },
+                { id: 'class_monthly', label: 'Rekap', desc: 'Rekapitulasi bulanan siswa', icon: BarChart3 },
+                { id: 'class_leave', label: 'Izin', desc: 'Kelola surat izin siswa', icon: CheckSquare },
+                { id: 'class_students', label: 'Siswa', desc: 'Daftar murid kelas', icon: Users },
+            ]
+        }
+    ];
+
+    let items = parentPrimaryItems;
+    if (currentUser?.role === 'ADMIN') {
+        items = adminPrimaryItems;
+    } else if (isTeacher) {
+        items = isWaliKelas ? waliPrimaryItems : teacherStandardItems;
+    }
+
+    // Tab yang berada di dalam popup drawer "Lainnya"
+    const isTabInMore = isWaliKelas && [
+        'class_daily', 
+        'class_monthly', 
+        'class_leave', 
+        'class_students'
+    ].includes(activeTab);
+
+    const activeIndex = items.findIndex(i => {
+        if (i.id === 'more' && isTabInMore) return true;
+        if (i.matchPrefix && activeTab.startsWith(i.matchPrefix)) return true;
+        return i.id === activeTab;
+    });
+
+    const handleItemClick = (item) => {
+        if (item.isAction) {
+            setShowMoreMenu(prev => !prev);
+        } else {
+            setActiveTab(item.id);
+            setShowMoreMenu(false);
+        }
+    };
+
+    return (
+        <>
+            {/* BACKDROP & POPUP MENU TITIK-TITIK (...) DENGAN JUDUL "LAINNYA" */}
+            {showMoreMenu && (
+                <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex flex-col justify-end md:hidden animate-in fade-in duration-200">
+                    <div 
+                        ref={menuRef}
+                        className="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto border-t border-slate-200 shadow-2xl p-5 pb-8 space-y-5 animate-in slide-in-from-bottom duration-300"
+                    >
+                        {/* Header Modal Judul "Lainnya" */}
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                            <div className="flex items-center gap-2.5">
+                                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                    <MoreHorizontal className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <h3 className="font-black text-slate-900 text-sm">Lainnya</h3>
+                                    <p className="text-[11px] text-slate-400">Menu kelas binaan dan menu lainnya</p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setShowMoreMenu(false)}
+                                className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center hover:bg-slate-200 transition cursor-pointer"
+                            >
+                                <X className="w-4 h-4" />
+                            </button>
+                        </div>
+
+                        {/* List Menu Section */}
+                        {waliDrawerItems.map((group, gIdx) => (
+                            <div key={gIdx} className="space-y-2">
+                                <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
+                                    {group.section}
+                                </div>
+                                <div className="space-y-1.5">
+                                    {group.items.map((m) => {
+                                        const Icon = m.icon;
+                                        const isCurrent = activeTab === m.id;
+                                        return (
+                                            <button
+                                                key={m.id}
+                                                onClick={() => {
+                                                    setActiveTab(m.id);
+                                                    setShowMoreMenu(false);
+                                                }}
+                                                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all text-left cursor-pointer ${
+                                                    isCurrent 
+                                                        ? 'bg-blue-50 border border-blue-200/80 text-blue-700 shadow-xs' 
+                                                        : 'bg-slate-50/80 border border-slate-100 text-slate-700 hover:bg-slate-100'
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-3 min-w-0">
+                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                                                        isCurrent ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
+                                                    }`}>
+                                                        <Icon className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <div className={`text-[14px] font-bold truncate ${isCurrent ? 'text-blue-900' : 'text-slate-800'}`}>
+                                                            {m.label}
+                                                        </div>
+                                                        <div className="text-xs text-slate-400 truncate">
+                                                            {m.desc}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <ChevronRight className={`w-4 h-4 shrink-0 ${isCurrent ? 'text-blue-600' : 'text-slate-300'}`} />
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* BOTTOM NAV BAR UTAMA */}
+            <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 border-t border-slate-200/90 backdrop-blur-xl px-2 py-1.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] safe-area-bottom transform-gpu">
+                <div className="relative flex justify-around items-center max-w-md mx-auto">
+                    {/* Active Indicator Backdrop */}
+                    <div
+                        className="absolute top-0 bottom-0 rounded-2xl bg-blue-50 border border-blue-200/60 transition-all duration-300 ease-out pointer-events-none"
+                        style={{
+                            width: `${100 / items.length}%`,
+                            left: `${(activeIndex >= 0 ? activeIndex : 0) * (100 / items.length)}%`
+                        }}
+                    />
+
+                    {items.map((item) => {
+                        const Icon = item.icon;
+                        const isMoreActive = item.id === 'more' && (showMoreMenu || isTabInMore);
+                        const isNormalActive = (item.matchPrefix && activeTab.startsWith(item.matchPrefix)) || activeTab === item.id;
+                        const isActive = isMoreActive || isNormalActive;
+
+                        return (
+                            <button
+                                key={item.id}
+                                onClick={() => handleItemClick(item)}
+                                className={`flex-1 py-1.5 flex flex-col items-center justify-center relative z-10 transition-all cursor-pointer ${
+                                    isActive 
+                                        ? 'text-blue-600 font-bold scale-105' 
+                                        : 'text-slate-400 hover:text-slate-700'
+                                }`}
+                            >
+                                <Icon className={`w-5 h-5 mb-0.5 transition-transform ${isActive ? 'stroke-[2.5] text-blue-600' : 'stroke-1.5'}`} />
+                                <span className="text-[11px] font-semibold tracking-tight">{item.label}</span>
+                            </button>
+                        );
+                    })}
+                </div>
+            </nav>
+        </>
+    );
+}
