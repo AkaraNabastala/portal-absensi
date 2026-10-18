@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
     KeyRound, 
     RefreshCw, 
@@ -7,19 +7,41 @@ import {
     ShieldCheck,
     Globe
 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
-export default function AdminSyncTab({ settings, onSettingsChange }) {
+export default function AdminSyncTab({ settings: propSettings, onSettingsChange }) {
+    const [localSettings, setLocalSettings] = useState(propSettings || {});
     const [copiedToken, setCopiedToken] = useState(false);
     const [copiedUrl, setCopiedUrl] = useState(false);
+    const [syncingNow, setSyncingNow] = useState(false);
     const [generatingToken, setGeneratingToken] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const gatewayUrl = `${origin}/api/sync/push-attendance`;
+    const gatewayUrl = `${origin}/api/sync`;
+
+    const loadLiveSettings = async () => {
+        try {
+            const res = await authFetch('/api/admin/settings');
+            const data = await res.json();
+            if (data.success && data.settings) {
+                setLocalSettings(data.settings);
+                if (onSettingsChange) onSettingsChange(data.settings);
+            }
+        } catch (e) {
+            console.error('Error load live sync settings:', e);
+        }
+    };
+
+    useEffect(() => {
+        loadLiveSettings();
+    }, []);
+
+    const activeSettings = localSettings?.sync_secret ? localSettings : propSettings;
 
     const handleCopyToken = () => {
-        if (settings?.sync_secret) {
-            navigator.clipboard.writeText(settings.sync_secret);
+        if (activeSettings?.sync_secret) {
+            navigator.clipboard.writeText(activeSettings.sync_secret);
             setCopiedToken(true);
             setTimeout(() => setCopiedToken(false), 2000);
         }
@@ -31,37 +53,29 @@ export default function AdminSyncTab({ settings, onSettingsChange }) {
         setTimeout(() => setCopiedUrl(false), 2000);
     };
 
-    const handleGenerateRandomToken = async () => {
-        if (!confirm('Apakah Anda yakin ingin membuat Secret Token baru? Token lama akan kedaluwarsa dan Anda harus memasukkan token baru ini ke aplikasi desktop.')) {
-            return;
-        }
-
-        setGeneratingToken(true);
+    const handleTriggerDirectSync = async () => {
+        setSyncingNow(true);
         setStatusMessage('');
-
         try {
-            const res = await fetch('/api/admin/generate-token', {
+            const res = await authFetch('/api/admin/trigger-direct-sync', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    username: 'admin',
-                    password: 'admin123',
-                    masterKey: 'DEV-MASTER-999'
-                })
+                headers: { 'Content-Type': 'application/json' }
             });
-
             const data = await res.json();
             if (data.success) {
-                if (onSettingsChange) onSettingsChange({ ...settings, sync_secret: data.sync_secret });
-                setStatusMessage('Secret Token acak baru berhasil digenerate!');
+                if (data.settings) {
+                    setLocalSettings(data.settings);
+                    if (onSettingsChange) onSettingsChange(data.settings);
+                }
+                setStatusMessage(data.message || 'Sinkronisasi dengan Nebula Presence berhasil!');
                 setTimeout(() => setStatusMessage(''), 4000);
             } else {
-                alert(data.message || 'Gagal generate token.');
+                alert(data.message || 'Gagal sinkronisasi.');
             }
-        } catch (err) {
-            alert('Terjadi kesalahan saat menghubungi server.');
+        } catch {
+            alert('Gagal menghubungi server.');
         } finally {
-            setGeneratingToken(false);
+            setSyncingNow(false);
         }
     };
 
@@ -103,15 +117,17 @@ export default function AdminSyncTab({ settings, onSettingsChange }) {
                         </div>
                     </div>
 
-                    <button
-                        onClick={handleGenerateRandomToken}
-                        disabled={generatingToken}
-                        className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                        title="Buat token acak baru"
-                    >
-                        <RefreshCw className={`w-3.5 h-3.5 ${generatingToken ? 'animate-spin text-blue-600' : ''}`} />
-                        <span>{generatingToken ? 'Membuat...' : 'Acak Token'}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleTriggerDirectSync}
+                            disabled={syncingNow}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold transition cursor-pointer shadow-xs disabled:opacity-50"
+                            title="Tarik data terbaru dari Nebula Presence lokal"
+                        >
+                            <RefreshCw className={`w-3.5 h-3.5 ${syncingNow ? 'animate-spin' : ''}`} />
+                            <span>{syncingNow ? 'Menyinkronkan...' : 'Sinkron Sekarang'}</span>
+                        </button>
+                    </div>
                 </div>
 
                 {/* Display Token */}
@@ -123,7 +139,7 @@ export default function AdminSyncTab({ settings, onSettingsChange }) {
                         <input
                             type="text"
                             readOnly
-                            value={settings?.sync_secret || ''}
+                            value={activeSettings?.sync_secret || 'SEC-NEBULA-SYNC-KEY-2026'}
                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-3.5 pr-24 font-mono text-xs sm:text-sm font-bold text-slate-800 select-all focus:outline-none"
                         />
                         <button

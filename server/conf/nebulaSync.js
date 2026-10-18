@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import betterSqlite from 'better-sqlite3';
+import bcrypt from 'bcryptjs';
 
 const NEBULA_DB_PATH = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
 
@@ -10,14 +11,14 @@ let lastNebulaDbMtime = 0;
 /**
  * Sinkronisasi instan langsung dari database aplikasi Nebula Presence ke database Portal
  */
-export function syncFromNebulaApp(portalDb) {
+export function syncFromNebulaApp(portalDb, force = false) {
     if (!fs.existsSync(NEBULA_DB_PATH)) {
         return { success: false, message: 'Database Nebula Presence lokal tidak ditemukan' };
     }
 
     try {
         const fileStat = fs.statSync(NEBULA_DB_PATH);
-        if (fileStat.mtimeMs <= lastNebulaDbMtime) {
+        if (!force && fileStat.mtimeMs <= lastNebulaDbMtime) {
             return { success: true, message: 'Database tidak ada perubahan baru' };
         }
         lastNebulaDbMtime = fileStat.mtimeMs;
@@ -27,7 +28,11 @@ export function syncFromNebulaApp(portalDb) {
         try {
             const rawSettings = nebulaDb.prepare('SELECT setting_key, setting_value FROM app_settings').all();
             const settingsMap = {};
-            // 1.1 Sinkron Admin dari tabel admins desktop jika tersedia
+            rawSettings.forEach(s => {
+                if (s.setting_key && s.setting_value) settingsMap[s.setting_key] = s.setting_value;
+            });
+
+            // Sinkron Admin dari tabel admins desktop jika tersedia
             try {
                 const adminRow = nebulaDb.prepare('SELECT username, password FROM admins ORDER BY id ASC LIMIT 1').get();
                 if (adminRow && adminRow.username) {
@@ -56,22 +61,13 @@ export function syncFromNebulaApp(portalDb) {
             console.warn('[NebulaDirectSync] Sync settings warning:', e.message);
         }
 
-        // 1.5. Sinkron Divisi / Kelas & Penanggung Jawab (Wali Kelas)
+        // 2. Sinkron Divisi / Kelas & Penanggung Jawab (Wali Kelas)
         try {
-            portalDb.exec(`
-                CREATE TABLE IF NOT EXISTS divisions (
-                    id INTEGER PRIMARY KEY,
-                    name TEXT UNIQUE NOT NULL,
-                    supervisor_name TEXT
-                );
-            `);
-
             const rawDivisions = nebulaDb.prepare('SELECT id, name, supervisor_name FROM divisions').all();
             const upsertDivision = portalDb.prepare(`
-                INSERT INTO divisions (id, name, supervisor_name)
-                VALUES (?, ?, ?)
+                INSERT INTO divisions (name, supervisor_name)
+                VALUES (?, ?)
                 ON CONFLICT(name) DO UPDATE SET
-                    id = excluded.id,
                     supervisor_name = excluded.supervisor_name
             `);
 
@@ -79,7 +75,7 @@ export function syncFromNebulaApp(portalDb) {
             for (const div of rawDivisions) {
                 const isNonClass = nonClass.some(nc => nc.toLowerCase() === div.name.toLowerCase());
                 const supName = (!isNonClass && div.supervisor_name) ? div.supervisor_name : null;
-                upsertDivision.run(div.id, div.name, supName);
+                upsertDivision.run(div.name, supName);
                 if (supName && !isNonClass) {
                     portalDb.prepare("UPDATE teachers SET assigned_division = ? WHERE full_name LIKE ?").run(div.name, `%${supName}%`);
                 }
@@ -88,7 +84,7 @@ export function syncFromNebulaApp(portalDb) {
             console.warn('[NebulaDirectSync] Sync divisions warning:', e.message);
         }
 
-        // 2. Sinkron Members (Siswa & Guru)
+        // 3. Sinkron Members (Siswa & Guru)
         try {
             const members = nebulaDb.prepare(`
                 SELECT m.id, m.identity_number as nipd, m.identity_reference as nisn,
@@ -106,9 +102,12 @@ export function syncFromNebulaApp(portalDb) {
                 LIMIT 1
             `);
 
+            const defaultPinHash = bcrypt.hashSync('123456', 10);
+            const defaultGuruPassHash = bcrypt.hashSync('Guru2026!', 10);
+
             const upsertMember = portalDb.prepare(`
-                INSERT INTO members (barcode_id, nipd, nisn, full_name, division, parent_pin, parent_name, parent_phone, photo_url, role)
-                VALUES (?, ?, ?, ?, ?, '123456', NULL, ?, ?, ?)
+                INSERT INTO members (barcode_id, nipd, nisn, full_name, division, parent_pin_hash, parent_name, parent_phone, photo_url, role)
+                VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?)
                 ON CONFLICT(barcode_id) DO UPDATE SET
                     full_name = excluded.full_name,
                     division = excluded.division,
@@ -133,8 +132,8 @@ export function syncFromNebulaApp(portalDb) {
             `);
 
             const upsertTeacher = portalDb.prepare(`
-                INSERT INTO teachers (nip, username, password, full_name, assigned_division, role)
-                VALUES (?, ?, 'guru123', ?, ?, 'WALI_KELAS')
+                INSERT INTO teachers (nip, username, password_hash, full_name, assigned_division, role)
+                VALUES (?, ?, ?, ?, ?, 'WALI_KELAS')
                 ON CONFLICT(nip) DO UPDATE SET
                     full_name = excluded.full_name,
                     assigned_division = excluded.assigned_division
@@ -172,6 +171,7 @@ export function syncFromNebulaApp(portalDb) {
                         nisnVal,
                         nameVal,
                         divisionVal,
+                        defaultPinHash,
                         phoneVal,
                         photoVal,
                         roleVal
@@ -194,6 +194,7 @@ export function syncFromNebulaApp(portalDb) {
                     upsertTeacher.run(
                         teacherNip,
                         teacherNip,
+                        defaultGuruPassHash,
                         nameVal,
                         assignedClass
                     );
@@ -203,7 +204,7 @@ export function syncFromNebulaApp(portalDb) {
             console.warn('[NebulaDirectSync] Sync members warning:', e.message);
         }
 
-        // 3. Sinkron Attendance Logs
+        // 4. Sinkron Attendance Logs
         try {
             const logs = nebulaDb.prepare(`
                 SELECT a.id, a.sync_id, a.status, a.date_log, a.scan_time, a.scan_out, a.shift_name, a.source,
@@ -219,12 +220,11 @@ export function syncFromNebulaApp(portalDb) {
             const upsertLog = portalDb.prepare(`
                 INSERT INTO attendance_logs (member_id, sync_id, date, time_in, time_out, status, note, device_gate)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 'Gate Mesin Presensi')
-                ON CONFLICT(member_id, date) DO UPDATE SET
+                ON CONFLICT(sync_id) DO UPDATE SET
                     status = excluded.status,
                     time_in = COALESCE(excluded.time_in, attendance_logs.time_in),
                     time_out = COALESCE(excluded.time_out, attendance_logs.time_out),
-                    sync_id = COALESCE(excluded.sync_id, attendance_logs.sync_id),
-                    note = COALESCE(excluded.note, attendance_logs.note)
+                    note = excluded.note
             `);
 
             for (const l of logs) {

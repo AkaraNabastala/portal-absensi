@@ -36,6 +36,9 @@ export default function AdminOverviewTab({ settings, setActiveTab, schoolInfo })
 
     useEffect(() => {
         loadStats();
+        // Auto-refresh data admin setiap 10 detik agar log scan RFID gerbang langsung muncul live
+        const interval = setInterval(loadStats, 10000);
+        return () => clearInterval(interval);
     }, []);
 
     const summary = data?.summary || {

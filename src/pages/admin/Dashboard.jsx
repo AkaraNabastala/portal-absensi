@@ -1,5 +1,7 @@
 import React from 'react';
 import AdminOverviewTab from './AdminOverviewTab';
+import AdminSchedulesTab from './AdminSchedulesTab';
+import AdminJournalsTab from './AdminJournalsTab';
 import AdminEkskulTab from './AdminEkskulTab';
 import AdminSyncTab from './AdminSyncTab';
 
@@ -22,6 +24,14 @@ export default function AdminDashboard({
                 />
             )}
 
+            {activeTab === 'admin_schedules' && (
+                <AdminSchedulesTab schoolInfo={schoolInfo} />
+            )}
+
+            {activeTab === 'admin_journals' && (
+                <AdminJournalsTab schoolInfo={schoolInfo} />
+            )}
+
             {activeTab === 'ekskul' && (
                 <AdminEkskulTab />
             )}
@@ -35,3 +45,4 @@ export default function AdminDashboard({
         </div>
     );
 }
+

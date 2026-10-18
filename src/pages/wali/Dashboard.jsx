@@ -9,6 +9,8 @@ import StudentOverviewTab from './StudentOverviewTab';
 import StudentDailyTab from './StudentDailyTab';
 import StudentLeaveTab from './StudentLeaveTab';
 import StudentProfileTab from './StudentProfileTab';
+import StudentSubjectAttendanceTab from './StudentSubjectAttendanceTab';
+import StudentEkskulAttendanceTab from './StudentEkskulAttendanceTab';
 
 export default function WaliDashboard({ student, parentData, activeTab, setActiveTab, onRefresh, schoolInfo }) {
     const [selectedMonth, setSelectedMonth] = useState('');
@@ -188,6 +190,18 @@ export default function WaliDashboard({ student, parentData, activeTab, setActiv
                     currentMonth={currentMonth}
                     onMonthChange={handleMonthChange}
                     formatIndoDate={formatIndoDate}
+                />
+            )}
+
+            {activeTab === 'subject_att' && (
+                <StudentSubjectAttendanceTab
+                    student={student}
+                />
+            )}
+
+            {activeTab === 'ekskul_att' && (
+                <StudentEkskulAttendanceTab
+                    student={student}
                 />
             )}
 

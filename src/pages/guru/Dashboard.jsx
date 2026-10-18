@@ -15,6 +15,8 @@ import ClassDailyTab from './ClassDailyTab';
 import ClassMonthlyTab from './ClassMonthlyTab';
 import ClassLeaveTab from './ClassLeaveTab';
 import ClassStudentsTab from './ClassStudentsTab';
+import TeacherJournalTab from './TeacherJournalTab';
+import TeacherEkskulTab from './TeacherEkskulTab';
 
 export default function GuruDashboard({ 
     teacher, 
@@ -90,6 +92,14 @@ export default function GuruDashboard({
         if (isWaliKelas && currentDivision) {
             fetchClassLeaves();
             fetchClassDailyByDate(classFilterDate);
+
+            // Auto-refresh data kehadiran murid kelas binaan setiap 10 detik
+            const interval = setInterval(() => {
+                fetchClassLeaves();
+                fetchClassDailyByDate(classFilterDate);
+            }, 10000);
+
+            return () => clearInterval(interval);
         }
     }, [isWaliKelas, currentDivision, classFilterDate]);
 
@@ -394,6 +404,20 @@ export default function GuruDashboard({
                     isWaliKelas={isWaliKelas}
                     currentDivision={currentDivision}
                     teacherTitle={teacherTitle}
+                />
+            )}
+
+            {activeTab === 'teacher_journal' && (
+                <TeacherJournalTab
+                    teacher={teacher}
+                    schoolInfo={schoolInfo}
+                />
+            )}
+
+            {activeTab === 'teacher_ekskul' && (
+                <TeacherEkskulTab
+                    teacher={teacher}
+                    schoolInfo={schoolInfo}
                 />
             )}
 

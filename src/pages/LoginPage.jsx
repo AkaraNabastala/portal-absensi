@@ -37,7 +37,7 @@ export default function LoginPage({ onLoginSuccess }) {
             });
             const data = await res.json();
             if (data.success) {
-                onLoginSuccess(data.user);
+                onLoginSuccess(data.user, data.token);
             } else {
                 setError(data.message || 'ID atau Kata Sandi salah.');
             }
@@ -128,7 +128,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         {/* Input 1: NISN / NIP */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
-                                NISN / NIP
+                                ID
                             </label>
                             <div className="relative group">
                                 <input
@@ -136,7 +136,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
-                                    placeholder="NISN / NIP"
+                                    placeholder="Masukan ID Anda"
                                     className="w-full bg-[#F4F6FB] hover:bg-slate-100/90 focus:bg-white border border-slate-200/90 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-medium"
                                 />
                                 <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-blue-600 transition-colors" />
@@ -146,7 +146,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         {/* Input 2: NIPD / Sandi */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
-                                NIPD / Kata Sandi
+                                Password
                             </label>
                             <div className="relative group">
                                 <input
@@ -154,7 +154,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={secret}
                                     onChange={(e) => setSecret(e.target.value)}
-                                    placeholder="NIPD / Kata Sandi"
+                                    placeholder="Masukan Password Anda"
                                     className="w-full bg-[#F4F6FB] hover:bg-slate-100/90 focus:bg-white border border-slate-200/90 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 rounded-2xl pl-11 pr-16 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-mono"
                                 />
                                 <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-blue-600 transition-colors" />

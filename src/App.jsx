@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import Navbar from './components/Navbar';
+import { authFetch } from './utils/api';
 
 import LoginPage from './pages/LoginPage';
 import WaliDashboard from './pages/wali/Dashboard';
@@ -11,7 +12,20 @@ import AdminDashboard from './pages/admin/Dashboard';
 
 // Komponen Pembungkus Portal Seragam (Admin, Guru, Siswa/Wali)
 function PortalLayout({ currentUser, onLogout, schoolInfo }) {
-  const [activeTab, setActiveTab] = useState('overview');
+  const [activeTab, setActiveTabState] = useState(() => {
+    try {
+      return localStorage.getItem('portal_active_tab') || 'overview';
+    } catch {
+      return 'overview';
+    }
+  });
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('portal_active_tab', tab);
+    } catch (_) {}
+  };
   const [parentData, setParentData] = useState(null);
   const [teacherSummary, setTeacherSummary] = useState(null);
 
@@ -20,7 +34,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
       const url = monthParam 
         ? `/api/member/personal-details/${memberId}?month=${monthParam}`
         : `/api/member/personal-details/${memberId}`;
-      const res = await fetch(url);
+      const res = await authFetch(url);
       const data = await res.json();
       if (data.success) {
         setParentData(data);
@@ -36,7 +50,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
       const url = monthParam
         ? `/api/teacher/class-summary/${encodeURIComponent(division)}?month=${monthParam}`
         : `/api/teacher/class-summary/${encodeURIComponent(division)}`;
-      const res = await fetch(url);
+      const res = await authFetch(url);
       const data = await res.json();
       if (data.success) setTeacherSummary(data);
     } catch (err) {
@@ -57,6 +71,18 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
       if (teacherId) fetchPersonalData(teacherId);
       if (teacherIsWali && teacherDiv) fetchTeacherClassData(teacherDiv);
     }
+
+    // Auto-refresh data setiap 10 detik agar kehadiran / scan RFID langsung terupdate di layar
+    const interval = setInterval(() => {
+      if (userRole === 'PARENT' && studentId) {
+        fetchPersonalData(studentId);
+      } else if (userRole === 'TEACHER') {
+        if (teacherId) fetchPersonalData(teacherId);
+        if (teacherIsWali && teacherDiv) fetchTeacherClassData(teacherDiv);
+      }
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [userRole, studentId, teacherId, teacherIsWali, teacherDiv]);
 
   return (
@@ -145,9 +171,10 @@ export default function App() {
       .catch(() => {});
   }, []);
 
-  const handleLoginSuccess = (user) => {
+  const handleLoginSuccess = (user, token) => {
     setCurrentUser(user);
     try {
+      if (token) localStorage.setItem('nebula_portal_token', token);
       localStorage.setItem('nebula_presence_user', JSON.stringify(user));
     } catch (e) {
       console.error(e);
@@ -157,6 +184,8 @@ export default function App() {
   const handleLogout = () => {
     setCurrentUser(null);
     try {
+      authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
+      localStorage.removeItem('nebula_portal_token');
       localStorage.removeItem('nebula_presence_user');
     } catch (e) {
       console.error(e);

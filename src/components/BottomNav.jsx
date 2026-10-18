@@ -10,11 +10,15 @@ import {
     CheckSquare,
     Users,
     X,
-    ChevronRight
+    ChevronRight,
+    BookOpen,
+    Award
 } from 'lucide-react';
 
 export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
     const isTeacher = currentUser?.role === 'TEACHER';
+    const isAdmin = currentUser?.role === 'ADMIN';
+    const isStudent = !isTeacher && !isAdmin;
     const isWaliKelas = isTeacher && currentUser?.teacher?.is_wali_kelas;
     const [showMoreMenu, setShowMoreMenu] = useState(false);
     const menuRef = useRef(null);
@@ -39,6 +43,8 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
     // 0. Menu Navigasi Utama untuk Administrator
     const adminPrimaryItems = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'admin_schedules', label: 'Jadwal', icon: CalendarDays },
+        { id: 'admin_journals', label: 'Jurnal', icon: BookOpen },
         { id: 'ekskul', label: 'Ekskul', icon: Users },
         { id: 'sync', label: 'Sync', icon: FileText },
     ];
@@ -46,59 +52,78 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
     // 1. Menu Navigasi Utama untuk Siswa / Wali Murid
     const parentPrimaryItems = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
-        { id: 'daily', label: 'Presensi', icon: CalendarDays },
-        { id: 'leave', label: 'Izin', icon: FileText },
-        { id: 'profile', label: 'Biodata', icon: User },
+        { id: 'daily', label: 'Gerbang', icon: CalendarDays },
+        { id: 'subject_att', label: 'Mapel', icon: BookOpen },
+        { id: 'ekskul_att', label: 'Ekskul', icon: Award },
+        { id: 'more', label: 'Lainnya', icon: MoreHorizontal, isAction: true },
     ];
 
     // 2. Menu Navigasi Utama untuk Guru (Bukan Wali Kelas)
     const teacherStandardItems = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
         { id: 'daily', label: 'Presensi', icon: CalendarDays },
-        { id: 'leave', label: 'Izin', icon: FileText },
-        { id: 'profile', label: 'Biodata', icon: User },
+        { id: 'teacher_journal', label: 'Jurnal', icon: BookOpen },
+        { id: 'teacher_ekskul', label: 'Ekskul', icon: Award },
+        { id: 'more', label: 'Lainnya', icon: MoreHorizontal, isAction: true },
     ];
 
     // 3. Menu Navigasi Utama untuk Guru Wali Kelas:
-    // Menu bawah TETAP FOKUS PADA MENU PRIBADI GURU (Beranda, Presensi, Izin, Biodata)
-    // dan tombol ke-5 adalah Lainnya (...) untuk membuka menu Wali Kelas
     const waliPrimaryItems = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
         { id: 'daily', label: 'Presensi', icon: CalendarDays },
-        { id: 'leave', label: 'Izin', icon: FileText },
-        { id: 'profile', label: 'Biodata', icon: User },
+        { id: 'teacher_journal', label: 'Jurnal', icon: BookOpen },
+        { id: 'teacher_ekskul', label: 'Ekskul', icon: Award },
         { id: 'more', label: 'Lainnya', icon: MoreHorizontal, isAction: true },
     ];
 
     const assignedClass = currentUser?.teacher?.assigned_division || 'Binaan';
 
     // Menu tambahan yang tampil di popup drawer "Lainnya" (...)
-    const waliDrawerItems = [
+    const drawerItems = isStudent ? [
+        {
+            section: 'Menu Siswa / Wali Murid',
+            items: [
+                { id: 'leave', label: 'Surat Izin', desc: 'Pengajuan izin & sakit siswa', icon: FileText },
+                { id: 'profile', label: 'Biodata Siswa', desc: 'Informasi data pokok siswa', icon: User },
+            ]
+        }
+    ] : (isWaliKelas ? [
         {
             section: `Kelas ${assignedClass}`,
             items: [
-                { id: 'class_daily', label: 'Presensi', desc: 'Presensi harian siswa', icon: CalendarDays },
-                { id: 'class_monthly', label: 'Rekap', desc: 'Rekapitulasi bulanan siswa', icon: BarChart3 },
-                { id: 'class_leave', label: 'Izin', desc: 'Kelola surat izin siswa', icon: CheckSquare },
-                { id: 'class_students', label: 'Siswa', desc: 'Daftar murid kelas', icon: Users },
+                { id: 'class_daily', label: 'Presensi Kelas', desc: 'Presensi harian siswa', icon: CalendarDays },
+                { id: 'class_monthly', label: 'Rekap Kelas', desc: 'Rekapitulasi bulanan siswa', icon: BarChart3 },
+                { id: 'class_leave', label: 'Izin Siswa', desc: 'Kelola surat izin siswa', icon: CheckSquare },
+                { id: 'class_students', label: 'Daftar Siswa', desc: 'Daftar murid kelas', icon: Users },
+            ]
+        },
+        {
+            section: 'Menu Guru',
+            items: [
+                { id: 'leave', label: 'Izin Pribadi', desc: 'Permohonan izin guru', icon: FileText },
+                { id: 'profile', label: 'Biodata Guru', desc: 'Profil data pengajar', icon: User },
             ]
         }
-    ];
+    ] : [
+        {
+            section: 'Menu Guru',
+            items: [
+                { id: 'leave', label: 'Izin Pribadi', desc: 'Permohonan izin guru', icon: FileText },
+                { id: 'profile', label: 'Biodata Guru', desc: 'Profil data pengajar', icon: User },
+            ]
+        }
+    ]);
 
     let items = parentPrimaryItems;
-    if (currentUser?.role === 'ADMIN') {
+    if (isAdmin) {
         items = adminPrimaryItems;
     } else if (isTeacher) {
         items = isWaliKelas ? waliPrimaryItems : teacherStandardItems;
     }
 
     // Tab yang berada di dalam popup drawer "Lainnya"
-    const isTabInMore = isWaliKelas && [
-        'class_daily', 
-        'class_monthly', 
-        'class_leave', 
-        'class_students'
-    ].includes(activeTab);
+    const moreTabIds = ['leave', 'profile', 'class_daily', 'class_monthly', 'class_leave', 'class_students'];
+    const isTabInMore = moreTabIds.includes(activeTab);
 
     const activeIndex = items.findIndex(i => {
         if (i.id === 'more' && isTabInMore) return true;
@@ -144,7 +169,7 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
                         </div>
 
                         {/* List Menu Section */}
-                        {waliDrawerItems.map((group, gIdx) => (
+                        {drawerItems.map((group, gIdx) => (
                             <div key={gIdx} className="space-y-2">
                                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-400 px-1">
                                     {group.section}

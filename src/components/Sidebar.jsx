@@ -11,7 +11,9 @@ import {
     GraduationCap,
     CheckSquare,
     ChevronDown,
-    ChevronRight
+    ChevronRight,
+    BookOpen,
+    Award
 } from 'lucide-react';
 
 export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout, schoolInfo }) {
@@ -27,14 +29,18 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     // 0. Menu Khusus Administrator
     const adminMenus = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
-        { id: 'ekskul', label: 'Ekskul', icon: Users },
+        { id: 'admin_schedules', label: 'Jadwal & Guru Mapel', icon: CalendarDays },
+        { id: 'admin_journals', label: 'Monitoring Jurnal', icon: BookOpen },
+        { id: 'ekskul', label: 'Ekskul & Pembina', icon: Users },
         { id: 'sync', label: 'Cloud Sync', icon: FileText },
     ];
 
     // 1. Menu Pribadi (Siswa / Wali Murid)
     const parentMenus = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
-        { id: 'daily', label: 'Presensi', icon: CalendarDays },
+        { id: 'daily', label: 'Presensi Gerbang', icon: CalendarDays },
+        { id: 'subject_att', label: 'Presensi Mapel', icon: BookOpen },
+        { id: 'ekskul_att', label: 'Presensi Ekskul', icon: Award },
         { id: 'leave', label: 'Izin', icon: FileText },
         { id: 'profile', label: 'Biodata', icon: User },
     ];
@@ -45,6 +51,12 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
         { id: 'daily', label: 'Presensi', icon: CalendarDays },
         { id: 'leave', label: 'Izin', icon: FileText },
         { id: 'profile', label: 'Biodata', icon: User },
+    ];
+
+    // 2.5. Menu Pembelajaran & Ekskul Guru
+    const teacherTeachingMenus = [
+        { id: 'teacher_journal', label: 'Jurnal Mengajar', icon: BookOpen },
+        { id: 'teacher_ekskul', label: 'Ekskul Binaan', icon: Award },
     ];
 
     // 3. Menu Khusus Kelas Binaan (Hanya untuk Wali Kelas, 1 kata ringkas)
@@ -164,6 +176,35 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                         })}
                     </div>
                 </div>
+
+                {/* Menu Khusus Pembelajaran & Ekskul untuk Guru */}
+                {isTeacher && (
+                    <div className="pt-2 border-t border-slate-100">
+                        <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                            Pembelajaran & Ekskul
+                        </div>
+                        <div className="space-y-1 mt-1">
+                            {teacherTeachingMenus.map((item) => {
+                                const Icon = item.icon;
+                                const isActive = activeTab === item.id;
+                                return (
+                                    <button
+                                        key={item.id}
+                                        onClick={() => setActiveTab(item.id)}
+                                        className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
+                                            isActive
+                                                ? 'bg-blue-50 text-blue-700 font-bold border-r-4 border-blue-600 shadow-xs'
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                                        <span className="truncate">{item.label}</span>
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                )}
 
                 {/* Menu Khusus Kelas Binaan (Dropdown Collapsible untuk Wali Kelas) */}
                 {isWaliKelas && (

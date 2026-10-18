@@ -1,19 +1,28 @@
 import React from 'react';
-import { School, LogOut, User } from 'lucide-react';
+import { School, LogOut, User, Sparkles, BookOpen, Award, BarChart3, ShieldCheck } from 'lucide-react';
 
 export default function Navbar({ currentUser, activeTab, onLogout, schoolInfo }) {
     const isTeacher = currentUser?.role === 'TEACHER';
-    const displayName = isTeacher 
-        ? currentUser?.teacher?.full_name 
-        : currentUser?.student?.full_name || 'Pengguna';
+    const isAdmin = currentUser?.role === 'ADMIN';
+    const displayName = isAdmin
+        ? (currentUser?.nama_admin || currentUser?.username || 'Administrator')
+        : (isTeacher 
+            ? currentUser?.teacher?.full_name 
+            : currentUser?.student?.full_name || 'Pengguna');
 
     // Label tab aktif untuk Desktop Breadcrumb (ringkas & bersih)
     const tabLabels = {
         overview: 'Beranda',
-        daily: 'Presensi',
+        daily: 'Presensi Pribadi',
         leave: 'Izin',
         profile: 'Biodata',
-        ekskul: 'Ekstrakurikuler',
+        subject_att: 'Presensi Mapel Siswa',
+        ekskul_att: 'Presensi Ekskul Siswa',
+        teacher_journal: 'Jurnal Mengajar',
+        teacher_ekskul: 'Ekskul Binaan',
+        admin_schedules: 'Atur Jadwal & Guru Mapel',
+        admin_journals: 'Monitoring Jurnal',
+        ekskul: 'Ekstrakurikuler & Pembina',
         sync: 'Cloud Sync',
         class_daily: 'Presensi Kelas',
         class_monthly: 'Rekap Kelas',
@@ -53,30 +62,6 @@ export default function Navbar({ currentUser, activeTab, onLogout, schoolInfo })
                             {tabLabels[activeTab] || 'Beranda'}
                         </h2>
                     </div>
-                </div>
-
-                {/* Sisi Kanan: Sangat ringkas & minimalis (tidak ramai) */}
-                <div className="flex items-center gap-3">
-                    {/* Nama Pengguna Ringkas */}
-                    <div className="flex items-center gap-2 text-xs font-semibold text-slate-700">
-                        <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                        <span className="max-w-[150px] truncate">{displayName}</span>
-                        <span className="hidden sm:inline-block text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-100">
-                            {isTeacher ? (currentUser?.teacher?.role === 'tendik' ? 'Tendik' : 'Guru') : 'Siswa'}
-                        </span>
-                    </div>
-
-                    {/* Tombol Logout Minimalis */}
-                    {currentUser && (
-                        <button
-                            onClick={onLogout}
-                            title="Keluar"
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition cursor-pointer"
-                        >
-                            <LogOut className="w-4 h-4" />
-                            <span className="hidden sm:inline">Keluar</span>
-                        </button>
-                    )}
                 </div>
 
             </div>
