@@ -1078,7 +1078,7 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
         return res.status(403).json({ success: false, message: 'Akses ditolak.' });
     }
 
-    const student = db.prepare('SELECT * FROM members WHERE id = ?').get(studentId);
+    const student = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, division, parent_name, parent_phone, phone_number, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
     }
