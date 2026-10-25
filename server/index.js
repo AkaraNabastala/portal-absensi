@@ -350,6 +350,9 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
 // Ambil daftar siswa kelas untuk presensi jam pelajaran
 app.get('/api/teacher/class-students/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
+    if (!canAccessDivision(req, division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan Anda.' });
+    }
     const students = db.prepare(`
         SELECT id, nisn, nipd, full_name, gender, division, photo_url
         FROM members
@@ -1027,6 +1030,9 @@ app.get('/api/extracurriculars/:id/recap', requireAuth, (req, res) => {
 // ==========================================
 app.get('/api/teacher/class-summary/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
+    if (!canAccessDivision(req, division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan Anda.' });
+    }
     const today = new Date().toISOString().split('T')[0];
     const month = req.query.month || today.substring(0, 7);
 
@@ -1076,6 +1082,12 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
     }
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
+    }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
 
     const todayLog = db.prepare('SELECT * FROM attendance_logs WHERE member_id = ? AND date = ?').get(studentId, today);
     const logs = db.prepare('SELECT * FROM attendance_logs WHERE member_id = ? AND date LIKE ? ORDER BY date DESC').all(studentId, `${month}%`);
@@ -1106,8 +1118,22 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
 // Pengajuan Izin Siswa
 app.post(['/api/parent/submit-leave', '/api/member/submit-leave'], requireAuth, (req, res) => {
     const { studentId, type, startDate, endDate, reason } = req.body;
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
     if (!studentId || !type || !startDate || !reason) {
         return res.status(400).json({ success: false, message: 'Data permohonan izin belum lengkap.' });
+    }
+    const effectiveEndDate = endDate || startDate;
+    if (String(startDate) > String(effectiveEndDate)) {
+        return res.status(400).json({ success: false, message: 'Tanggal mulai tidak boleh melewati tanggal selesai.' });
+    }
+    const targetMember = db.prepare('SELECT id, division FROM members WHERE id = ?').get(studentId);
+    if (!targetMember) {
+        return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
+    }
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, targetMember.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
     }
 
     // Validasi bahwa jika login sebagai siswa, hanya untuk dirinya sendiri
@@ -1119,7 +1145,7 @@ app.post(['/api/parent/submit-leave', '/api/member/submit-leave'], requireAuth, 
     db.prepare(`
         INSERT INTO leave_requests (member_id, sync_id, type, start_date, end_date, reason, status, submitted_at, synced_to_local)
         VALUES (?, ?, ?, ?, ?, ?, 'MENUNGGU', CURRENT_TIMESTAMP, 0)
-    `).run(studentId, syncId, type, startDate, endDate || startDate, reason);
+    `).run(studentId, syncId, type, startDate, effectiveEndDate, reason);
 
     logAudit(db, req, 'SUBMIT_LEAVE', 'leave_requests', null, `Pengajuan izin ${type} siswa ${studentId}`);
     res.json({ success: true, message: 'Permohonan izin berhasil diajukan dan menunggu persetujuan wali kelas.' });
