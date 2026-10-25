@@ -70,6 +70,17 @@ const getIndonesianDayName = (dateStr) => {
     return days[d.getDay()];
 };
 
+// Akses data kelas dibatasi pada wali kelas yang ditugaskan.
+// Admin dapat mengakses semua kelas; guru hanya kelas yang tercantum di profil sesi.
+const canAccessDivision = (req, division) => {
+    if (req.user?.role === 'ADMIN') return true;
+    if (req.user?.role !== 'TEACHER' || !division) return false;
+
+    const userData = req.user.userData || {};
+    if (userData.assigned_division === division) return true;
+    return Array.isArray(userData.managed_divisions) && userData.managed_divisions.includes(division);
+};
+
 // ==========================================
 // 1. INFO BRANDING & STATUS PORTAL
 // ==========================================
@@ -350,8 +361,11 @@ app.get('/api/teacher/class-students/:division', requireAuth, requireRole('TEACH
 });
 
 // Presensi Harian Siswa per Kelas (Wali Kelas) - Menggabungkan log gate RFID dan izin
-app.get('/api/teacher/class-attendance/:division', (req, res) => {
+app.get('/api/teacher/class-attendance/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
+    if (!canAccessDivision(req, division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan Anda.' });
+    }
     const date = req.query.date || new Date().toISOString().split('T')[0];
 
     const students = db.prepare(`
@@ -374,8 +388,11 @@ app.get('/api/teacher/class-attendance/:division', (req, res) => {
 });
 
 // Daftar Izin Siswa Kelas Binaan (Wali Kelas)
-app.get('/api/teacher/leave-requests/:division', (req, res) => {
+app.get('/api/teacher/leave-requests/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
+    if (!canAccessDivision(req, division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan Anda.' });
+    }
     const leaves = db.prepare(`
         SELECT lr.*, m.full_name as member_name, m.nisn, m.nipd, m.division, m.photo_url
         FROM leave_requests lr
@@ -389,7 +406,7 @@ app.get('/api/teacher/leave-requests/:division', (req, res) => {
 });
 
 // Buat Izin Siswa oleh Guru / Wali Kelas
-app.post('/api/teacher/create-leave', (req, res) => {
+app.post('/api/teacher/create-leave', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { studentId, type, startDate, endDate, reason } = req.body;
     if (!studentId || !type || !startDate || !endDate) {
         return res.status(400).json({ success: false, message: 'Data permohonan izin belum lengkap.' });
@@ -398,6 +415,9 @@ app.post('/api/teacher/create-leave', (req, res) => {
     const member = db.prepare('SELECT id, full_name, division FROM members WHERE id = ?').get(studentId);
     if (!member) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
+    }
+    if (!canAccessDivision(req, member.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
     }
 
     const syncId = `LEAVE-${studentId}-${Date.now()}`;
@@ -419,14 +439,21 @@ app.post('/api/teacher/create-leave', (req, res) => {
 });
 
 // Aksi Persetujuan Izin Siswa (Setujui / Tolak)
-app.post('/api/teacher/leave-requests/:id/action', (req, res) => {
+app.post('/api/teacher/leave-requests/:id/action', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { id } = req.params;
     const { action } = req.body;
+    if (!['SETUJUI', 'TOLAK'].includes(action)) {
+        return res.status(400).json({ success: false, message: 'Aksi harus SETUJUI atau TOLAK.' });
+    }
 
     const newStatus = action === 'SETUJUI' ? 'DISETUJUI' : 'DITOLAK';
     const leave = db.prepare('SELECT * FROM leave_requests WHERE id = ?').get(id);
     if (!leave) {
         return res.status(404).json({ success: false, message: 'Permohonan izin tidak ditemukan.' });
+    }
+    const leaveMember = db.prepare('SELECT division FROM members WHERE id = ?').get(leave.member_id);
+    if (!leaveMember || !canAccessDivision(req, leaveMember.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: permohonan ini bukan dari kelas binaan Anda.' });
     }
 
     db.prepare(`
