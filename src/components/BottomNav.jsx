@@ -212,7 +212,7 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
             )}
 
             {/* BOTTOM NAV BAR UTAMA */}
-            <nav className="portal-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 px-2 pt-2 pb-1.5 safe-area-bottom transform-gpu">
+            <nav className="portal-bottom-nav md:hidden fixed bottom-3 inset-x-3 z-40 rounded-2xl px-2 pt-2 pb-2 safe-area-bottom transform-gpu">
                 <div className="relative flex justify-around items-center max-w-md mx-auto">
                     {/* Active Indicator Backdrop */}
                     <div
