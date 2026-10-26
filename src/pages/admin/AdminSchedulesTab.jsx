@@ -10,7 +10,8 @@ import {
     Check, 
     Search,
     Layers,
-    Filter
+    Filter,
+    X
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -297,7 +298,7 @@ export default function AdminSchedulesTab() {
                                 onClick={() => setShowModal(false)}
                                 className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 hover:bg-slate-200 flex items-center justify-center text-sm font-bold cursor-pointer"
                             >
-                                ✕
+                                <X className="h-4 w-4" />
                             </button>
                         </div>
 
