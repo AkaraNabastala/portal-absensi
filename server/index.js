@@ -120,7 +120,8 @@ app.post('/api/auth/login', (req, res) => {
     const adminUser = schoolSettings?.admin_username || 'admin';
     const adminHash = schoolSettings?.admin_password_hash;
 
-    const isAdminIdMatch = ['admin', 'administrator', adminUser.toLowerCase()].includes(cleanId.toLowerCase());
+    const isAdminIdMatch = cleanId.toLowerCase() === adminUser.toLowerCase() ||
+        (adminUser.toLowerCase() === 'admin' && cleanId.toLowerCase() === 'administrator');
     const isAdminPassMatch = Boolean(
         adminHash && bcrypt.compareSync(cleanSecret, adminHash)
     );
@@ -1471,7 +1472,10 @@ app.post('/api/sync/handshake', (req, res) => {
         return res.status(401).json({ success: false, message: 'Sync secret tidak valid.' });
     }
     const settings = db.prepare('SELECT school_name, academic_year, last_sync_at FROM school_settings WHERE id = 1').get();
-    res.json({ success: true, message: 'Handshake sinkronisasi berhasil.', settings });
+    const realMembers = db.prepare("SELECT COUNT(*) AS count FROM members WHERE nisn NOT IN ('0051234567','0051234568','0051234569','0051234570','0051234571')").get().count;
+    const realTeachers = db.prepare("SELECT COUNT(*) AS count FROM teachers WHERE username NOT IN ('guru.budi','guru.siti','guru.hendra')").get().count;
+    const bootstrap_required = realMembers === 0 || realTeachers === 0;
+    res.json({ success: true, message: 'Handshake sinkronisasi berhasil.', settings, bootstrap_required });
 });
 
 // Admin: Tombol Pemicu Sinkronisasi Langsung dari Database Lokal Nebula Presence
@@ -1551,6 +1555,70 @@ app.post('/api/sync/attendance-batch', (req, res) => {
         res.json({ success: true, message: `Berhasil menyinkronkan ${syncedCount} catatan presensi.` });
     } catch (err) {
         res.status(500).json({ success: false, message: err.message });
+    }
+});
+
+// Sinkron akun SuperAdmin Nebula: hanya menerima bcrypt hash, bukan kata sandi teks.
+app.post('/api/sync/push-admin-account', (req, res) => {
+    if (!checkSyncAuth(req)) return res.status(401).json({ success: false, message: 'Sync secret tidak valid.' });
+    const username = String(req.body?.username || '').trim();
+    const passwordHash = String(req.body?.password_hash || '');
+    const validBcryptHash = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(passwordHash);
+    if (!username || username.length > 100 || !validBcryptHash) {
+        return res.status(400).json({ success: false, message: 'Akun admin atau hash kata sandi tidak valid.' });
+    }
+    db.prepare(`
+        UPDATE school_settings
+        SET admin_username = ?, admin_password_hash = ?,
+            last_sync_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+        WHERE id = 1
+    `).run(username, passwordHash);
+    res.json({ success: true, message: 'Akun admin Nebula Presence berhasil disinkronkan.' });
+});
+
+// Sinkron jadwal pelajaran dari Nebula Presence; ID remote menjaga update tetap idempoten.
+app.post('/api/sync/push-teaching-schedules', (req, res) => {
+    if (!checkSyncAuth(req)) return res.status(401).json({ success: false, message: 'Sync secret tidak valid.' });
+    const schedules = req.body?.schedules;
+    if (!Array.isArray(schedules)) return res.status(400).json({ success: false, message: 'Data jadwal harus berupa array.' });
+    if (schedules.length > 5000) return res.status(413).json({ success: false, message: 'Batch jadwal terlalu besar.' });
+    const findTeacher = db.prepare('SELECT id FROM teachers WHERE nip = ? OR nip = ? LIMIT 1');
+    const upsertSchedule = db.prepare(`
+        INSERT INTO teaching_schedules
+            (nebula_schedule_id, teacher_id, division, subject_name, day_name, start_time, end_time, academic_year, room, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(nebula_schedule_id) DO UPDATE SET
+            teacher_id = excluded.teacher_id, division = excluded.division,
+            subject_name = excluded.subject_name, day_name = excluded.day_name,
+            start_time = excluded.start_time, end_time = excluded.end_time,
+            academic_year = excluded.academic_year, is_active = excluded.is_active
+    `);
+    let synced = 0, skipped = 0;
+    const tx = db.transaction(() => {
+        for (const item of schedules) {
+            const remoteId = String(item?.id ?? '').trim();
+            const teacherIdentity = String(item?.teacher_identity_number || '').trim();
+            const teacherReference = String(item?.teacher_identity_reference || '').trim();
+            const division = String(item?.division_name || '').trim();
+            const subject = String(item?.subject_name || '').trim();
+            const day = String(item?.day_of_week || '').trim();
+            const start = String(item?.start_time || '').slice(0, 5);
+            const end = String(item?.end_time || '').slice(0, 5);
+            if (!remoteId || !division || !subject || !day || !start || !end) { skipped++; continue; }
+            const teacher = findTeacher.get(teacherIdentity, teacherReference);
+            if (!teacher) { skipped++; continue; }
+            upsertSchedule.run(remoteId, teacher.id, division, subject, day, start, end,
+                String(item?.academic_year || '2026/2027'), String(item?.room || 'Ruang Kelas'),
+                item?.is_active === false || item?.is_active === 0 ? 0 : 1);
+            synced++;
+        }
+        db.prepare('UPDATE school_settings SET last_sync_at = CURRENT_TIMESTAMP WHERE id = 1').run();
+    });
+    try {
+        tx();
+        res.json({ success: true, synced, skipped, message: `${synced} jadwal disinkronkan; ${skipped} dilewati karena data wajib belum lengkap atau guru belum terpetakan.` });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Gagal menyinkronkan jadwal: ' + error.message });
     }
 });
 

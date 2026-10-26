@@ -112,6 +112,7 @@ db.exec(`
 db.exec(`
   CREATE TABLE IF NOT EXISTS teaching_schedules (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    nebula_schedule_id TEXT UNIQUE,
     teacher_id INTEGER NOT NULL,
     division TEXT NOT NULL,          -- Rombel, e.g. 'XII RPL 1'
     subject_name TEXT NOT NULL,      -- Nama Mata Pelajaran, e.g. 'Pemrograman Web'
@@ -128,6 +129,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_schedules_teacher ON teaching_schedules (teacher_id);
   CREATE INDEX IF NOT EXISTS idx_schedules_day_div ON teaching_schedules (day_name, division);
 `);
+
+// Migrasi aman untuk database Portal yang dibuat sebelum sinkronisasi jadwal Nebula.
+const scheduleColumns = db.prepare('PRAGMA table_info(teaching_schedules)').all();
+if (!scheduleColumns.some((column) => column.name === 'nebula_schedule_id')) {
+  db.exec('ALTER TABLE teaching_schedules ADD COLUMN nebula_schedule_id TEXT');
+}
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_schedules_nebula_id ON teaching_schedules (nebula_schedule_id) WHERE nebula_schedule_id IS NOT NULL');
 
 // 7. Jurnal Guru (Catatan Pertemuan Belajar Mengajar)
 db.exec(`
@@ -326,169 +334,8 @@ export function initSeedDatabase() {
           WHERE id = 1
       `).run(newSyncSecret);
   }
-  // 2. Seed Guru Contoh
-  const countTeachers = db.prepare('SELECT COUNT(*) as c FROM teachers').get().c;
-  if (countTeachers === 0) {
-    const guruPassHash = bcrypt.hashSync('Guru2026!', 10);
-    
-    const insertTeacher = db.prepare(`
-      INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    insertTeacher.run(
-      '198001012005011001',
-      '3273010101800001',
-      'guru.budi',
-      guruPassHash,
-      'Budi Santoso, S.Pd',
-      'XII RPL 1',
-      'WALI_KELAS',
-      '081234567890'
-    );
-
-    insertTeacher.run(
-      '198502022008012002',
-      '3273010202850002',
-      'guru.siti',
-      guruPassHash,
-      'Siti Rahma, M.Kom',
-      'XI RPL 1',
-      'WALI_KELAS',
-      '081234567891'
-    );
-
-    insertTeacher.run(
-      '199003032015011003',
-      '3273010303900003',
-      'guru.hendra',
-      guruPassHash,
-      'Hendra Wijaya, S.T',
-      null,
-      'GURU',
-      '081234567892'
-    );
-  }
-
-  // 3. Seed Rombel / Divisi
-  const countDivisions = db.prepare('SELECT COUNT(*) as c FROM divisions').get().c;
-  if (countDivisions === 0) {
-    const tBudi = db.prepare("SELECT id FROM teachers WHERE username = 'guru.budi'").get();
-    const tSiti = db.prepare("SELECT id FROM teachers WHERE username = 'guru.siti'").get();
-
-    const insertDiv = db.prepare(`
-      INSERT INTO divisions (name, supervisor_teacher_id, supervisor_name)
-      VALUES (?, ?, ?)
-    `);
-    insertDiv.run('XII RPL 1', tBudi?.id || null, 'Budi Santoso, S.Pd');
-    insertDiv.run('XI RPL 1', tSiti?.id || null, 'Siti Rahma, M.Kom');
-  }
-
-  // 4. Seed Siswa Contoh
-  const countStudents = db.prepare('SELECT COUNT(*) as c FROM members').get().c;
-  if (countStudents === 0) {
-    const defaultPinHash = bcrypt.hashSync('123456', 10);
-    const insertMember = db.prepare(`
-      INSERT INTO members (barcode_id, nipd, nisn, full_name, gender, division, parent_pin_hash, parent_name, parent_phone, role)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'siswa')
-    `);
-
-    insertMember.run('BC-1001', '24001', '0051234567', 'Ahmad Fauzi', 'L', 'XII RPL 1', defaultPinHash, 'Bpk. Ridwan Fauzi', '08121111001');
-    insertMember.run('BC-1002', '24002', '0051234568', 'Bintang Pratama', 'L', 'XII RPL 1', defaultPinHash, 'Bpk. Joko Pratama', '08121111002');
-    insertMember.run('BC-1003', '24003', '0051234569', 'Citra Lestari', 'P', 'XII RPL 1', defaultPinHash, 'Ibu Sri Lestari', '08121111003');
-    insertMember.run('BC-1004', '24004', '0051234570', 'Dimas Anggara', 'L', 'XI RPL 1', defaultPinHash, 'Bpk. Agus Anggara', '08121111004');
-    insertMember.run('BC-1005', '24005', '0051234571', 'Eka Putri Rahayu', 'P', 'XI RPL 1', defaultPinHash, 'Ibu Maria Rahayu', '08121111005');
-  }
-
-  // 5. Seed Jadwal Pelajaran (Teaching Schedules)
-  const countSchedules = db.prepare('SELECT COUNT(*) as c FROM teaching_schedules').get().c;
-  if (countSchedules === 0) {
-    const tBudi = db.prepare("SELECT id FROM teachers WHERE username = 'guru.budi'").get();
-    const tSiti = db.prepare("SELECT id FROM teachers WHERE username = 'guru.siti'").get();
-    const tHendra = db.prepare("SELECT id FROM teachers WHERE username = 'guru.hendra'").get();
-
-    const insertSchedule = db.prepare(`
-      INSERT INTO teaching_schedules (teacher_id, division, subject_name, day_name, start_time, end_time, room)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    // Senin s/d Sabtu
-    if (tBudi) {
-      insertSchedule.run(tBudi.id, 'XII RPL 1', 'Pemrograman Web & Mobile', 'Senin', '07:30', '09:30', 'Lab Komputer 1');
-      insertSchedule.run(tBudi.id, 'XII RPL 1', 'Basis Data Terdistribusi', 'Rabu', '10:00', '12:00', 'Lab Komputer 2');
-      insertSchedule.run(tBudi.id, 'XI RPL 1', 'Dasar Pemrograman', 'Kamis', '08:00', '10:00', 'Lab Komputer 1');
-    }
-    if (tSiti) {
-      insertSchedule.run(tSiti.id, 'XI RPL 1', 'Pemodelan Perangkat Lunak', 'Senin', '08:00', '10:00', 'Ruang Teori 3');
-      insertSchedule.run(tSiti.id, 'XII RPL 1', 'Kecerdasan Buatan Terapan', 'Selasa', '07:30', '09:30', 'Lab Komputer 2');
-    }
-    if (tHendra) {
-      insertSchedule.run(tHendra.id, 'XII RPL 1', 'Cloud Computing & DevOps', 'Jumat', '08:00', '10:00', 'Lab Jaringan');
-    }
-  }
-
-  // 6. Seed Ekstrakurikuler
-  const countEkskul = db.prepare('SELECT COUNT(*) as c FROM extracurriculars').get().c;
-  if (countEkskul === 0) {
-    const tBudi = db.prepare("SELECT id FROM teachers WHERE username = 'guru.budi'").get();
-    const tSiti = db.prepare("SELECT id FROM teachers WHERE username = 'guru.siti'").get();
-
-    const insertEkskul = db.prepare(`
-      INSERT INTO extracurriculars (name, mentor_teacher_id, mentor_name, day_name, start_time, end_time, location, description)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-
-    const pId = insertEkskul.run(
-      'Pramuka Gugus Depan',
-      tBudi?.id || null,
-      'Budi Santoso, S.Pd',
-      'Jumat',
-      '14:00',
-      '16:00',
-      'Lapangan Utama',
-      'Pendidikan kepramukaan wajib & pengembangan kepemimpinan'
-    ).lastInsertRowid;
-
-    const rId = insertEkskul.run(
-      'Robotik & IoT Nabastala',
-      tSiti?.id || null,
-      'Siti Rahma, M.Kom',
-      'Sabtu',
-      '09:00',
-      '11:30',
-      'Lab Komputer 1',
-      'Pengembangan sistem otomatisasi hardware, sensor, dan IoT'
-    ).lastInsertRowid;
-
-    const fId = insertEkskul.run(
-      'Futsal Klub Sekolah',
-      tBudi?.id || null,
-      'Budi Santoso, S.Pd',
-      'Sabtu',
-      '07:30',
-      '09:30',
-      'Lapangan Olahraga',
-      'Pelatihan teknik dasar, fisik, dan persiapan turnamen antar sekolah'
-    ).lastInsertRowid;
-
-    // Seed Anggota Ekskul
-    const allMembers = db.prepare('SELECT id FROM members LIMIT 5').all();
-    const insertMemberEkskul = db.prepare(`
-      INSERT OR IGNORE INTO extracurricular_members (extracurricular_id, member_id)
-      VALUES (?, ?)
-    `);
-
-    allMembers.forEach(m => {
-      insertMemberEkskul.run(pId, m.id);
-    });
-
-    if (allMembers[0]) insertMemberEkskul.run(rId, allMembers[0].id);
-    if (allMembers[2]) insertMemberEkskul.run(rId, allMembers[2].id);
-    if (allMembers[3]) insertMemberEkskul.run(rId, allMembers[3].id);
-
-    if (allMembers[1]) insertMemberEkskul.run(fId, allMembers[1].id);
-    if (allMembers[3]) insertMemberEkskul.run(fId, allMembers[3].id);
-  }
+  // Data contoh sengaja tidak dibuat otomatis. Data sekolah harus berasal dari Nebula Presence
+  // atau dimasukkan oleh admin agar database baru tidak tampak berisi data palsu.
 }
 
 // Jalankan seed awal jika tabel baru
