@@ -130,9 +130,9 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                     ) : isTeacher ? (
                         <>
                             <div className="text-xs text-blue-600 font-semibold truncate mt-0.5">
-                                {isWaliKelas
-                                    ? `Wali Kelas ${currentUser.teacher.assigned_division}`
-                                    : (currentUser?.teacher?.role === 'tendik' ? 'Tendik' : 'Dewan Guru')}
+                                {isPenanggungJawab
+                                    ? 'Penanggung Jawab'
+                                    : (isWaliKelas ? `Wali Kelas ${currentUser.teacher.assigned_division || assignedClass}` : (currentUser?.teacher?.role === 'tendik' || currentUser?.teacher?.role === 'TENDIK' ? 'Tendik' : 'Dewan Guru'))}
                             </div>
                             <div className="text-xs text-slate-400 font-mono truncate">
                                 NIP: {currentUser?.teacher?.nip || '-'}
