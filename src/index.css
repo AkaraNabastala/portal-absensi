@@ -76,7 +76,7 @@ button { touch-action: manipulation; }
 .portal-content .bg-white.rounded-xl,
 .portal-content .bg-white.rounded-2xl,
 .portal-content .bg-white.rounded-3xl,
-.portal-content .bg-white.rounded-\\[2rem\\] {
+.portal-content .bg-white.rounded-\[2rem\] {
   border-color: var(--line);
   box-shadow: 0 8px 28px -24px rgba(16, 28, 48, .32);
 }
@@ -111,7 +111,7 @@ button { touch-action: manipulation; }
 
 @media (max-width: 767px) {
   .portal-content { padding-top: 1rem; }
-  .portal-content .rounded-\\[2rem\\], .portal-content .rounded-\\[2\\.5rem\\] { border-radius: 1.15rem; }
+  .portal-content .rounded-\[2rem\], .portal-content .rounded-\[2\\.5rem\] { border-radius: 1.15rem; }
   .portal-topbar .portal-mobile-user { max-width: 44vw; }
 }
 @media (prefers-reduced-motion: reduce) {
