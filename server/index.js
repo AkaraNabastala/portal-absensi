@@ -1261,6 +1261,34 @@ app.get('/api/admin/teachers', requireAuth, requireRole('ADMIN'), (req, res) => 
     res.json({ success: true, data: list });
 });
 
+app.put('/api/admin/teachers/:id/credentials', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const teacherId = Number(req.params.id);
+    const username = String(req.body?.username || '').trim();
+    const password = String(req.body?.password || '');
+    if (!Number.isInteger(teacherId) || teacherId < 1 || !/^[a-zA-Z0-9._-]{3,80}$/.test(username)) {
+        return res.status(400).json({ success: false, message: 'Username harus 3–80 karakter dan hanya boleh berisi huruf, angka, titik, garis bawah, atau tanda hubung.' });
+    }
+    if (password && (password.length < 8 || password.length > 200)) {
+        return res.status(400).json({ success: false, message: 'Password baru minimal 8 karakter.' });
+    }
+    const teacher = db.prepare('SELECT id, full_name FROM teachers WHERE id = ? AND status = \'ACTIVE\'').get(teacherId);
+    if (!teacher) return res.status(404).json({ success: false, message: 'Guru tidak ditemukan atau tidak aktif.' });
+    const duplicate = db.prepare('SELECT id FROM teachers WHERE LOWER(username) = LOWER(?) AND id != ?').get(username, teacherId);
+    if (duplicate) return res.status(409).json({ success: false, message: 'Username sudah digunakan oleh akun lain.' });
+    try {
+        if (password) {
+            db.prepare('UPDATE teachers SET username = ?, password_hash = ? WHERE id = ?').run(username, bcrypt.hashSync(password, 12), teacherId);
+        } else {
+            db.prepare('UPDATE teachers SET username = ? WHERE id = ?').run(username, teacherId);
+        }
+        logAudit(db, req, 'UPDATE_TEACHER_CREDENTIALS', 'teachers', teacherId, `Kredensial login ${teacher.full_name} diperbarui`);
+        res.json({ success: true, message: `Kredensial login ${teacher.full_name} berhasil diperbarui.` });
+    } catch (err) {
+        console.error('[Teacher Credentials Error]:', err.message);
+        res.status(500).json({ success: false, message: 'Gagal memperbarui kredensial guru.' });
+    }
+});
+
 // Admin: Ambil daftar seluruh rombel / kelas
 app.get('/api/admin/divisions', requireAuth, requireRole('ADMIN'), (req, res) => {
     const divisions = db.prepare('SELECT id, name, supervisor_teacher_id, supervisor_name, academic_year FROM divisions ORDER BY name ASC').all();
