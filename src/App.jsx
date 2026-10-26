@@ -89,7 +89,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
   }, [userRole, studentId, teacherId, teacherCanManageClass, teacherDiv]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-100 text-slate-800 flex font-sans antialiased relative">
+    <div className="min-h-screen bg-[#f4f8fc] text-slate-800 flex font-sans antialiased relative">
       {/* Desktop Sidebar (Seragam untuk Siswa, Guru, dan Admin) */}
       <Sidebar
         currentUser={currentUser}
