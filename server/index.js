@@ -113,7 +113,7 @@ app.post('/api/auth/login', (req, res) => {
     }
 
     const cleanId = String(identifier).trim();
-    const cleanSecret = String(secret).trim();
+    // Jangan trim kata sandi: spasi dapat menjadi bagian sah dari password.
 
     // A. Cek Login Admin Sekolah
     const schoolSettings = db.prepare('SELECT * FROM school_settings WHERE id = 1').get();
@@ -123,7 +123,7 @@ app.post('/api/auth/login', (req, res) => {
     const isAdminIdMatch = cleanId.toLowerCase() === adminUser.toLowerCase() ||
         (adminUser.toLowerCase() === 'admin' && cleanId.toLowerCase() === 'administrator');
     const isAdminPassMatch = Boolean(
-        adminHash && bcrypt.compareSync(cleanSecret, adminHash)
+        adminHash && bcrypt.compareSync(String(secret), adminHash)
     );
 
     if (isAdminIdMatch && isAdminPassMatch) {
@@ -161,12 +161,12 @@ app.post('/api/auth/login', (req, res) => {
     const teacher = db.prepare(`
         SELECT id, nip, nik, username, password_hash, full_name, assigned_division, role, photo_url, phone_number, status
         FROM teachers 
-        WHERE (username = ? OR nip = ? OR LOWER(username) = LOWER(?)) AND status = 'ACTIVE'
+        WHERE (username = ? OR LOWER(nip) = LOWER(?) OR LOWER(username) = LOWER(?)) AND status = 'ACTIVE'
     `).get(cleanId, cleanId, cleanId);
 
     const isTeacherPassMatch = Boolean(
         teacher?.password_hash &&
-        bcrypt.compareSync(cleanSecret, teacher.password_hash)
+        bcrypt.compareSync(String(secret), teacher.password_hash)
     );
 
     if (teacher && isTeacherPassMatch) {
@@ -176,7 +176,9 @@ app.post('/api/auth/login', (req, res) => {
             WHERE supervisor_teacher_id = ? OR supervisor_name LIKE ?
         `).all(teacher.id, `%${teacher.full_name}%`);
 
-        const isWaliKelas = managed.length > 0 || !!teacher.assigned_division;
+        const normalizedTeacherRole = String(teacher.role || '').trim().toUpperCase().replace(/[\s-]+/g, '_');
+        const isPenanggungJawab = normalizedTeacherRole.includes('PENANGGUNG_JAWAB') || normalizedTeacherRole.includes('KOORDINATOR');
+        const isWaliKelas = managed.length > 0 || !!teacher.assigned_division || normalizedTeacherRole.includes('WALI_KELAS');
         const assignedDivision = teacher.assigned_division || (managed.length > 0 ? managed[0].name : null);
 
         // Ambil daftar ekskul yang dibina guru ini
@@ -191,6 +193,7 @@ app.post('/api/auth/login', (req, res) => {
             full_name: teacher.full_name,
             role: teacher.role || 'GURU',
             is_wali_kelas: isWaliKelas,
+            is_penanggung_jawab: isPenanggungJawab,
             assigned_division: assignedDivision,
             managed_divisions: managed.map(m => m.name),
             is_mentor: mentorEkskuls.length > 0,
@@ -227,7 +230,7 @@ app.post('/api/auth/login', (req, res) => {
 
     if (student) {
         let pinValid = false;
-        if (student.parent_pin_hash && bcrypt.compareSync(cleanSecret, student.parent_pin_hash)) {
+        if (student.parent_pin_hash && bcrypt.compareSync(String(secret), student.parent_pin_hash)) {
             pinValid = true;
         } else if (cleanSecret === '123456' || cleanSecret === '1234') {
             pinValid = true;
@@ -1793,7 +1796,7 @@ app.post('/api/sync/push-members', (req, res) => {
 
     // Tentukan jenis akun dari role, bukan nama kelas. Kelas "Umum" atau
     // anggota tanpa kelas tidak boleh membuat siswa salah diklasifikasikan sebagai guru.
-    const staffRoles = new Set(['guru', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan']);
+    const staffRoles = new Set(['guru', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'wali kelas', 'wali_kelas', 'walikelas', 'penanggung jawab', 'penanggung_jawab', 'koordinator']);
     const studentRoles = new Set(['siswa', 'student', 'murid']);
 
     const syncedIds = [];
@@ -1815,7 +1818,9 @@ app.post('/api/sync/push-members', (req, res) => {
                     defaultGuruPass,
                     m.full_name,
                     m.supervisor_name ? div : null,
-                    role === 'tendik' ? 'tendik' : 'GURU',
+                    role === 'tendik' ? 'TENDIK'
+                        : (role.includes('wali') ? 'WALI_KELAS'
+                        : (role.includes('penanggung') || role === 'koordinator' ? 'PENANGGUNG_JAWAB' : 'GURU')),
                     m.phone_number || null,
                     m.photo || null
                 );
