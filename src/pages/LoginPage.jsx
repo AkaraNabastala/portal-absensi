@@ -15,6 +15,14 @@ export default function LoginPage({ onLoginSuccess }) {
     });
 
     useEffect(() => {
+        try {
+            const savedIdentifier = localStorage.getItem('portal_remembered_identifier');
+            if (savedIdentifier) {
+                setIdentifier(savedIdentifier);
+                setRememberMe(true);
+            }
+        } catch (_) {}
+
         fetch('/api/portal/info')
             .then(res => res.json())
             .then(res => {
