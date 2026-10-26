@@ -60,7 +60,7 @@ export default function LoginPage({ onLoginSuccess }) {
     };
 
     return (
-        <div className="min-h-screen bg-[#edf6fc] flex items-center justify-center p-4 sm:p-8 font-sans antialiased relative overflow-hidden selection:bg-sky-200 selection:text-[#14253b]">
+        <div className="portal-sky-canvas min-h-screen bg-[#edf6fc] flex items-center justify-center p-4 sm:p-8 font-sans antialiased relative overflow-hidden selection:bg-sky-200 selection:text-[#14253b]">
 
             {/* Container Utama (Card Split Screen Desktop / Stacked Mobile) */}
             <div className="w-full max-w-5xl bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-[0_24px_70px_rgba(20,37,59,.14)] border border-white overflow-hidden grid grid-cols-1 md:grid-cols-[.92fr_1.08fr] relative z-10">
