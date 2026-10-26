@@ -81,6 +81,18 @@ const canAccessDivision = (req, division) => {
     return Array.isArray(userData.managed_divisions) && userData.managed_divisions.includes(division);
 };
 
+const canCoverSchedule = (req, schedule, date) => {
+    if (req.user?.role === 'ADMIN') return true;
+    if (req.user?.role !== 'TEACHER' || !schedule || !date) return false;
+    if (Number(schedule.teacher_id) === Number(req.user.userId)) return true;
+    return Boolean(db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE teacher_id = ? AND substitute_teacher_id = ? AND status = 'DISETUJUI' AND start_date <= ? AND end_date >= ? LIMIT 1`).get(schedule.teacher_id, req.user.userId, date, date));
+};
+const canTeachDivision = (req, division, date = new Date().toISOString().split('T')[0]) => {
+    if (canAccessDivision(req, division)) return true;
+    if (req.user?.role !== 'TEACHER' || !division) return false;
+    return Boolean(db.prepare(`SELECT 1 FROM teaching_schedules s WHERE s.division = ? AND s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?)) LIMIT 1`).get(division, req.user.userId, req.user.userId, date, date));
+};
+
 // ==========================================
 // 1. INFO BRANDING & STATUS PORTAL
 // ==========================================
@@ -306,7 +318,7 @@ app.get('/api/teacher/schedules', requireAuth, requireRole('TEACHER', 'ADMIN'), 
         SELECT s.*, t.full_name as teacher_name
         FROM teaching_schedules s
         JOIN teachers t ON s.teacher_id = t.id
-        WHERE s.teacher_id = ? AND s.is_active = 1
+        WHERE s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= date('now','localtime') AND ar.end_date >= date('now','localtime')))
         ORDER BY 
             CASE s.day_name 
                 WHEN 'Senin' THEN 1 
@@ -318,7 +330,7 @@ app.get('/api/teacher/schedules', requireAuth, requireRole('TEACHER', 'ADMIN'), 
                 ELSE 7 
             END,
             s.start_time ASC
-    `).all(teacherId);
+    `).all(teacherId, teacherId);
 
     res.json({ success: true, data: schedules });
 });
@@ -338,9 +350,9 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
         FROM teaching_schedules s
         JOIN teachers t ON s.teacher_id = t.id
         LEFT JOIN teacher_journals j ON j.schedule_id = s.id AND j.date = ?
-        WHERE s.teacher_id = ? AND s.day_name = ? AND s.is_active = 1
+        WHERE s.day_name = ? AND s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?))
         ORDER BY s.start_time ASC
-    `).all(targetDate, teacherId, dayName);
+    `).all(targetDate, dayName, teacherId, teacherId, targetDate, targetDate);
 
     res.json({ 
         success: true, 
@@ -353,8 +365,8 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
 // Ambil daftar siswa kelas untuk presensi jam pelajaran
 app.get('/api/teacher/class-students/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
-    if (!canAccessDivision(req, division)) {
-        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan Anda.' });
+    if (!canTeachDivision(req, division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan atau penugasan Anda.' });
     }
     const students = db.prepare(`
         SELECT id, nisn, nipd, full_name, gender, division, photo_url
@@ -369,8 +381,8 @@ app.get('/api/teacher/class-students/:division', requireAuth, requireRole('TEACH
 // Presensi Harian Siswa per Kelas (Wali Kelas) - Menggabungkan log gate RFID dan izin
 app.get('/api/teacher/class-attendance/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
-    if (!canAccessDivision(req, division)) {
-        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan Anda.' });
+    if (!canTeachDivision(req, division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan atau penugasan Anda.' });
     }
     const date = req.query.date || new Date().toISOString().split('T')[0];
 
@@ -498,8 +510,8 @@ app.get('/api/teacher/journal/:scheduleId/:date', requireAuth, requireRole('TEAC
     }
 
     // Validasi kewenangan guru
-    if (req.user.role === 'TEACHER' && schedule.teacher_id !== req.user.userId) {
-        return res.status(403).json({ success: false, message: 'Akses ditolak: Jadwal ini bukan penugasan Anda.' });
+    if (!canCoverSchedule(req, schedule, date)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: jadwal ini bukan penugasan Anda pada tanggal tersebut.' });
     }
 
     const journal = db.prepare(`
@@ -552,8 +564,8 @@ app.post('/api/teacher/journal', requireAuth, requireRole('TEACHER', 'ADMIN'), (
         return res.status(404).json({ success: false, message: 'Jadwal pelajaran tidak ditemukan.' });
     }
 
-    if (req.user.role === 'TEACHER' && schedule.teacher_id !== req.user.userId) {
-        return res.status(403).json({ success: false, message: 'Akses ditolak: Jadwal ini bukan milik Anda.' });
+    if (!canCoverSchedule(req, schedule, date)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: jadwal ini bukan penugasan Anda pada tanggal tersebut.' });
     }
 
     // Jalankan transaksi database yang aman dan atomik
@@ -1071,6 +1083,36 @@ app.get('/api/teacher/class-summary/:division', requireAuth, requireRole('TEACHE
 // ==========================================
 // 6. ENDPOINT PORTAL WALI / SISWA & DETAIL
 // ==========================================
+// Pengajuan izin guru dan penunjukan guru pengganti.
+app.get('/api/teacher/absence-requests', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
+    const rows = req.user.role === 'ADMIN'
+        ? db.prepare(`SELECT ar.*, t.full_name AS teacher_name, t.nip AS teacher_nip, st.full_name AS substitute_name, st.nip AS substitute_nip FROM teacher_absence_requests ar JOIN teachers t ON t.id = ar.teacher_id LEFT JOIN teachers st ON st.id = ar.substitute_teacher_id ORDER BY ar.created_at DESC LIMIT 200`).all()
+        : db.prepare(`SELECT ar.*, t.full_name AS teacher_name, st.full_name AS substitute_name FROM teacher_absence_requests ar JOIN teachers t ON t.id = ar.teacher_id LEFT JOIN teachers st ON st.id = ar.substitute_teacher_id WHERE ar.teacher_id = ? OR ar.substitute_teacher_id = ? ORDER BY ar.created_at DESC LIMIT 100`).all(req.user.userId, req.user.userId);
+    res.json({ success: true, data: rows });
+});
+app.post('/api/teacher/absence-requests', requireAuth, requireRole('TEACHER'), (req, res) => {
+    const startDate = String(req.body?.startDate || '');
+    const endDate = String(req.body?.endDate || '');
+    const reason = String(req.body?.reason || '').trim();
+    const validDate = value => /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(value));
+    if (!validDate(startDate) || !validDate(endDate) || endDate < startDate || !reason) return res.status(400).json({ success: false, message: 'Tanggal mulai, tanggal selesai, dan alasan wajib diisi dengan benar.' });
+    const result = db.prepare('INSERT INTO teacher_absence_requests (teacher_id, start_date, end_date, reason) VALUES (?, ?, ?, ?)').run(req.user.userId, startDate, endDate, reason);
+    logAudit(db, req, 'SUBMIT_TEACHER_ABSENCE', 'teacher_absence_requests', result.lastInsertRowid, `Pengajuan izin guru ${startDate} sampai ${endDate}`);
+    res.status(201).json({ success: true, message: 'Pengajuan izin terkirim. Pengganti ditetapkan oleh admin.', id: result.lastInsertRowid });
+});
+app.post('/api/admin/absence-requests/:id/assign', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const request = db.prepare('SELECT * FROM teacher_absence_requests WHERE id = ?').get(req.params.id);
+    if (!request) return res.status(404).json({ success: false, message: 'Pengajuan izin tidak ditemukan.' });
+    const substituteId = Number(req.body?.substituteTeacherId);
+    const substitute = db.prepare("SELECT id, full_name FROM teachers WHERE id = ? AND status = 'ACTIVE'").get(substituteId);
+    if (!substitute || substitute.id === request.teacher_id) return res.status(400).json({ success: false, message: 'Pilih guru pengganti aktif yang berbeda dari guru yang izin.' });
+    const overlap = db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE substitute_teacher_id = ? AND status = 'DISETUJUI' AND id != ? AND start_date <= ? AND end_date >= ? LIMIT 1`).get(substituteId, request.id, request.end_date, request.start_date);
+    if (overlap) return res.status(409).json({ success: false, message: 'Guru pengganti sudah ditugaskan pada rentang tanggal yang bertumpang tindih.' });
+    db.prepare(`UPDATE teacher_absence_requests SET substitute_teacher_id = ?, status = 'DISETUJUI', notes = ?, approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(substituteId, String(req.body?.notes || '').trim() || null, req.user.userData?.username || 'ADMIN', request.id);
+    logAudit(db, req, 'ASSIGN_SUBSTITUTE_TEACHER', 'teacher_absence_requests', request.id, `Guru pengganti ditetapkan: ${substitute.full_name}`);
+    res.json({ success: true, message: `${substitute.full_name} ditetapkan sebagai guru pengganti.` });
+});
+
 app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details/:studentId'], requireAuth, (req, res) => {
     const { studentId } = req.params;
     const today = new Date().toISOString().split('T')[0];
