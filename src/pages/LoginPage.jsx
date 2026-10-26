@@ -117,15 +117,7 @@ export default function LoginPage({ onLoginSuccess }) {
                             Sign In
                         </h2>
                     </div>
-
-                    {error && (
-                        <div className="mb-5 p-3 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 text-sm flex items-center gap-2.5 animate-in fade-in">
-                            <AlertCircle className="w-4 h-4 shrink-0 text-rose-500" />
-                            <span className="font-medium leading-tight">{error}</span>
-                        </div>
-                    )}
-
-                    <form onSubmit={handleSubmit} className="space-y-4">
+<form onSubmit={handleSubmit} className="space-y-4">
 
                         {/* Input 1: NISN / NIP */}
                         <div>
