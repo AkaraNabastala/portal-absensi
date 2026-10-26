@@ -375,7 +375,7 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
         FROM teaching_schedules s
         JOIN teachers t ON s.teacher_id = t.id
         LEFT JOIN teacher_journals j ON j.schedule_id = s.id AND j.date = ?
-        WHERE s.day_name = ? AND s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?))
+        WHERE s.day_name = ? AND s.is_active = 1 AND ((s.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM teacher_absence_requests own_ar WHERE own_ar.teacher_id = s.teacher_id AND own_ar.status = 'DISETUJUI' AND own_ar.start_date <= ? AND own_ar.end_date >= ?)) OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?))
         ORDER BY s.start_time ASC
     `).all(teacherId, teacherId, targetDate, dayName, teacherId, targetDate, targetDate, teacherId, targetDate, targetDate);
 
