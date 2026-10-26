@@ -388,10 +388,10 @@ app.get('/api/teacher/class-students/:division', requireAuth, requireRole('TEACH
 // Presensi Harian Siswa per Kelas (Wali Kelas) - Menggabungkan log gate RFID dan izin
 app.get('/api/teacher/class-attendance/:division', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
     const { division } = req.params;
-    if (!canTeachDivision(req, division)) {
-        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan atau penugasan Anda.' });
-    }
     const date = req.query.date || new Date().toISOString().split('T')[0];
+    if (!canTeachDivision(req, division, date)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: kelas ini bukan kelas binaan atau penugasan Anda pada tanggal tersebut.' });
+    }
 
     const students = db.prepare(`
         SELECT m.id, m.nisn, m.nipd, m.full_name, m.gender, m.division, m.photo_url,
