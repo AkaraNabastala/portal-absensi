@@ -86,9 +86,9 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const photoUrl = isTeacher ? currentUser?.teacher?.photo_url : currentUser?.student?.photo_url;
 
     return (
-        <aside className="hidden md:flex flex-col w-72 fixed inset-y-0 left-0 bg-white border-r border-slate-200/80 z-30 select-none shadow-sm">
+        <aside className="hidden md:flex flex-col w-72 fixed inset-y-0 left-0 bg-[#0b1730] border-r border-white/10 z-30 select-none shadow-2xl">
             {/* Header Instansi */}
-            <div className="p-5 border-b border-slate-100 flex items-center gap-3">
+            <div className="p-5 border-b border-white/10 flex items-center gap-3">
                 {schoolInfo?.school_logo ? (
                     <img 
                         src={schoolInfo.school_logo} 
@@ -99,19 +99,19 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                     <School className="w-8 h-8 text-blue-600 shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
-                    <h1 className="font-bold text-sm text-slate-900 tracking-tight leading-snug break-words">
+                    <h1 className="font-bold text-sm text-white tracking-tight leading-snug break-words">
                         {schoolInfo?.school_name || 'NEBULA PRESENCE'}
                     </h1>
-                    <span className="text-xs text-blue-600 font-semibold block mt-0.5">
+                    <span className="text-xs text-sky-300 font-semibold block mt-0.5">
                         NEBULA PRESENCE
                     </span>
                 </div>
             </div>
 
             {/* Profil Mini Pengguna */}
-            <div className="p-3 mx-3 my-3 bg-slate-50 rounded-2xl border border-slate-100 flex items-center gap-3">
-                <div className="w-12 h-16 rounded-xl overflow-hidden bg-blue-100 border border-slate-200 shadow-2xs shrink-0 relative flex items-center justify-center">
-                    <span className="font-extrabold text-blue-700 text-sm select-none">
+            <div className="p-3 mx-3 my-3 bg-white/[0.06] rounded-2xl border border-white/10 flex items-center gap-3">
+                <div className="w-12 h-16 rounded-xl overflow-hidden bg-blue-500/20 border border-white/10 shadow-2xs shrink-0 relative flex items-center justify-center">
+                    <span className="font-extrabold text-sky-200 text-sm select-none">
                         {displayName.charAt(0) || 'U'}
                     </span>
                     {photoUrl && (
@@ -124,10 +124,10 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                     )}
                 </div>
                 <div className="min-w-0 flex-1">
-                    <div className="text-sm font-bold text-slate-900 truncate">{displayName}</div>
+                    <div className="text-sm font-bold text-white truncate">{displayName}</div>
                     {isAdmin ? (
                         <>
-                            <div className="text-xs text-blue-600 font-semibold truncate mt-0.5">
+                            <div className="text-xs text-sky-300 font-semibold truncate mt-0.5">
                                 Administrator
                             </div>
                             <div className="text-xs text-slate-400 font-mono truncate">
@@ -159,10 +159,10 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
             </div>
 
             {/* Navigasi Menu */}
-            <nav className="flex-1 px-3 space-y-4 overflow-y-auto pt-1">
+            <nav className="flex-1 px-3 space-y-4 overflow-y-auto pt-1 custom-scrollbar">
                 {/* Menu Presensi Pribadi */}
                 <div>
-                    <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                    <div className="px-3 py-1.5 text-[10px] font-extrabold uppercase tracking-[0.18em] text-slate-500">
                         Presensi Pribadi
                     </div>
                     <div className="space-y-1 mt-1">
@@ -175,11 +175,11 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                                     onClick={() => setActiveTab(item.id)}
                                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                                         isActive
-                                            ? 'bg-blue-50 text-blue-700 font-bold border-r-4 border-blue-600 shadow-xs'
-                                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                            ? 'bg-gradient-to-r from-blue-600/25 to-sky-400/10 text-white font-bold border-l-2 border-sky-300 shadow-sm'
+                                            : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
                                     }`}
                                 >
-                                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                                    <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-sky-300' : 'text-slate-500'}`} />
                                     <span className="truncate">{item.label}</span>
                                 </button>
                             );
@@ -273,7 +273,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
             </nav>
 
             {/* Footer Sidebar */}
-            <div className="p-3 border-t border-slate-100 space-y-2">
+            <div className="p-3 border-t border-white/10 space-y-2">
                 <button
                     onClick={onLogout}
                     className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition cursor-pointer"
@@ -281,7 +281,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                     <LogOut className="w-4 h-4" />
                     <span>Keluar</span>
                 </button>
-                <div className="text-center text-xs text-slate-400 pt-1">
+                <div className="text-center text-[10px] text-slate-500 pt-1">
                     Nebula Presence • v2.0
                 </div>
             </div>
