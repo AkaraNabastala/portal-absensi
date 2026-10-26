@@ -24,7 +24,12 @@ export default function LoginPage({ onLoginSuccess }) {
     }, []);
 
     const handleSubmit = async (e) => {
-        e.preventDefault();        setLoading(true);
+        e.preventDefault();
+        try {
+            if (rememberMe) localStorage.setItem('portal_remembered_identifier', identifier.trim());
+            else localStorage.removeItem('portal_remembered_identifier');
+        } catch (_) {}
+        setLoading(true);
 
         try {
             const res = await fetch('/api/auth/login', {
@@ -119,7 +124,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         {/* Input 1: NISN / NIP */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
-                                ID
+                                ID Pengguna (NISN / NIP)
                             </label>
                             <div className="relative group">
                                 <input
