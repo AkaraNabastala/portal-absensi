@@ -30,7 +30,7 @@ export default function GuruDashboard({
     schoolInfo 
 }) {
     const isWaliKelas = !!teacher?.is_wali_kelas;
-    const canManageClass = isWaliKelas || (!!teacher?.is_penanggung_jawab && !!(teacher?.assigned_division || teacher?.managed_divisions?.length));
+    const canManageClass = (isWaliKelas || !!teacher?.is_penanggung_jawab) && !!(teacher?.assigned_division || teacher?.managed_divisions?.length);
     const currentDivision = teacher?.assigned_division || teacher?.managed_divisions?.[0] || '';
     const [absenceStart, setAbsenceStart] = useState(new Date().toISOString().split('T')[0]);
     const [absenceEnd, setAbsenceEnd] = useState(new Date().toISOString().split('T')[0]);
