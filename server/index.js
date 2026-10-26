@@ -1791,15 +1791,18 @@ app.post('/api/sync/push-members', (req, res) => {
             status = 'ACTIVE'
     `);
 
-    const nonClass = ['Guru', 'Tendik', 'Staff', 'Pegawai', 'Umum', 'Karyawan', 'Semua'];
+    // Tentukan jenis akun dari role, bukan nama kelas. Kelas "Umum" atau
+    // anggota tanpa kelas tidak boleh membuat siswa salah diklasifikasikan sebagai guru.
+    const staffRoles = new Set(['guru', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan']);
+    const studentRoles = new Set(['siswa', 'student', 'murid']);
 
     const syncedIds = [];
     let skipped = 0;
     const tx = db.transaction(() => {
         for (const m of members) {
-            const role = String(m.role || '').toLowerCase();
+            const role = String(m.role || '').trim().toLowerCase();
             const div = m.division_name || 'Umum';
-            const isGuru = role === 'guru' || role === 'tendik' || nonClass.includes(div);
+            const isGuru = staffRoles.has(role);
 
             if (isGuru) {
                 const nip = m.nipd || m.nisn || `GURU-${m.id}`;
@@ -1817,7 +1820,7 @@ app.post('/api/sync/push-members', (req, res) => {
                     m.photo || null
                 );
                 syncedIds.push(m.id);
-            } else if (m.nisn) {
+            } else if (studentRoles.has(role) && m.nisn) {
                 upsertStudent.run(
                     m.rfid_code || m.barcode_id || `BC-${m.id}`,
                     m.nipd || null,
