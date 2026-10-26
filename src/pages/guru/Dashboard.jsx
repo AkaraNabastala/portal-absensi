@@ -140,7 +140,7 @@ export default function GuruDashboard({
     const fetchClassLeaves = async () => {
         if (!currentDivision) return;
         try {
-            const res = await fetch(`/api/teacher/leave-requests/${encodeURIComponent(currentDivision)}`);
+            const res = await authFetch(`/api/teacher/leave-requests/${encodeURIComponent(currentDivision)}`);
             const data = await res.json();
             if (data.success) setClassLeaves(data.leaves);
         } catch (e) {
@@ -151,7 +151,7 @@ export default function GuruDashboard({
     const fetchClassDailyByDate = async (dt) => {
         if (!currentDivision) return;
         try {
-            const res = await fetch(`/api/teacher/class-attendance/${encodeURIComponent(currentDivision)}?date=${dt}`);
+            const res = await authFetch(`/api/teacher/class-attendance/${encodeURIComponent(currentDivision)}?date=${dt}`);
             const data = await res.json();
             if (data.success) setClassDailyStudents(data.students);
         } catch (e) {
@@ -183,7 +183,7 @@ export default function GuruDashboard({
         setFeedbackMsg('');
         setInputStudentLoading(true);
         try {
-            const res = await fetch('/api/teacher/create-leave', {
+            const res = await authFetch('/api/teacher/create-leave', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -216,7 +216,7 @@ export default function GuruDashboard({
         setActionLoading(id);
         setFeedbackMsg('');
         try {
-            const res = await fetch(`/api/teacher/leave-requests/${id}/action`, {
+            const res = await authFetch(`/api/teacher/leave-requests/${id}/action`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ action })
