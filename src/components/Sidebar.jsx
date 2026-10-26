@@ -86,7 +86,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const photoUrl = isTeacher ? currentUser?.teacher?.photo_url : currentUser?.student?.photo_url;
 
     return (
-        <aside className="hidden md:flex flex-col w-72 fixed inset-y-0 left-0 bg-[#0b1730] border-r border-white/10 z-30 select-none shadow-2xl">
+        <aside className="hidden md:flex flex-col w-72 fixed inset-y-0 left-0 bg-[#101c30] border-r border-white/10 z-30 select-none shadow-[8px_0_28px_rgba(16,28,48,0.08)]">
             {/* Header Instansi */}
             <div className="p-5 border-b border-white/10 flex items-center gap-3">
                 {schoolInfo?.school_logo ? (
@@ -96,7 +96,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                         className="w-10 h-10 object-contain shrink-0" 
                     />
                 ) : (
-                    <School className="w-8 h-8 text-blue-600 shrink-0" />
+                    <School className="w-8 h-8 text-sky-300 shrink-0" />
                 )}
                 <div className="min-w-0 flex-1">
                     <h1 className="font-bold text-sm text-white tracking-tight leading-snug break-words">
@@ -136,7 +136,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                         </>
                     ) : isTeacher ? (
                         <>
-                            <div className="text-xs text-blue-600 font-semibold truncate mt-0.5">
+                            <div className="text-xs text-sky-300 font-semibold truncate mt-0.5">
                                 {isPenanggungJawab
                                     ? 'Penanggung Jawab'
                                     : (isWaliKelas ? `Wali Kelas ${currentUser.teacher.assigned_division || assignedClass}` : (currentUser?.teacher?.role === 'tendik' || currentUser?.teacher?.role === 'TENDIK' ? 'Tendik' : 'Dewan Guru'))}
@@ -147,7 +147,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                         </>
                     ) : (
                         <>
-                            <div className="text-xs text-blue-600 font-semibold truncate mt-0.5">
+                            <div className="text-xs text-sky-300 font-semibold truncate mt-0.5">
                                 Kelas: {currentUser?.student?.division || '-'}
                             </div>
                             <div className="text-xs text-slate-400 font-mono truncate">
@@ -175,7 +175,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                                     onClick={() => setActiveTab(item.id)}
                                     className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                                         isActive
-                                            ? 'bg-gradient-to-r from-blue-600/25 to-sky-400/10 text-white font-bold border-l-2 border-sky-300 shadow-sm'
+                                            ? 'bg-sky-400/12 text-white font-bold border-l-2 border-sky-300'
                                             : 'text-slate-300 hover:text-white hover:bg-white/[0.07]'
                                     }`}
                                 >
@@ -189,7 +189,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
 
                 {/* Menu Khusus Pembelajaran & Ekskul untuk Guru */}
                 {isTeacher && visibleTeacherTeachingMenus.length > 0 && (
-                    <div className="pt-2 border-t border-slate-100">
+                    <div className="pt-2 border-t border-white/10">
                         <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                             Pembelajaran & Ekskul
                         </div>
@@ -203,11 +203,11 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                                         onClick={() => setActiveTab(item.id)}
                                         className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold transition-all cursor-pointer ${
                                             isActive
-                                                ? 'bg-blue-50 text-blue-700 font-bold border-r-4 border-blue-600 shadow-xs'
-                                                : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                                                ? 'bg-sky-400/12 text-white font-bold border-r-2 border-sky-300'
+                                                : 'text-slate-300 hover:text-white hover:bg-white/[0.06]'
                                         }`}
                                     >
-                                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-blue-600' : 'text-slate-400'}`} />
+                                        <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-sky-300' : 'text-slate-400'}`} />
                                         <span className="truncate">{item.label}</span>
                                     </button>
                                 );
@@ -218,23 +218,23 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
 
                 {/* Menu Khusus Kelas Binaan (Dropdown Collapsible untuk Wali Kelas) */}
                 {canManageClass && (
-                    <div className="pt-2 border-t border-slate-100">
+                    <div className="pt-2 border-t border-white/10">
                         {/* Dropdown Header Button */}
                         <button
                             type="button"
                             onClick={() => setIsClassOpen(prev => !prev)}
                             className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
                                 isClassTabActive 
-                                    ? 'bg-blue-50/70 text-blue-700' 
-                                    : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                                    ? 'bg-sky-400/10 text-sky-100' 
+                                    : 'text-slate-300 hover:bg-white/[0.06] hover:text-white'
                             }`}
                         >
                             <div className="flex items-center gap-2.5 truncate">
-                                <GraduationCap className={`w-4 h-4 shrink-0 ${isClassTabActive ? 'text-blue-600' : 'text-slate-500'}`} />
+                                <GraduationCap className={`w-4 h-4 shrink-0 ${isClassTabActive ? 'text-sky-300' : 'text-slate-500'}`} />
                                 <span className="truncate">{isWaliKelas ? `Kelas ${assignedClass}` : 'Penanggung Jawab'}</span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
-                                <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-blue-100/70 text-blue-700">
+                                <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-sky-400/15 text-sky-200">
                                     {isWaliKelas ? 'Wali' : 'PJ'}
                                 </span>
                                 {isClassOpen ? (
@@ -247,7 +247,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
 
                         {/* Dropdown Items (1 kata ringkas) */}
                         {isClassOpen && (
-                            <div className="mt-1 ml-3 pl-2.5 border-l-2 border-slate-100 space-y-0.5">
+                            <div className="mt-1 ml-3 pl-2.5 border-l-2 border-white/10 space-y-0.5">
                                 {waliKelasMenus.map((item) => {
                                     const Icon = item.icon;
                                     const isActive = activeTab === item.id;
