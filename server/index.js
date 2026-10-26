@@ -127,6 +127,48 @@ app.get('/api/portal/info', (req, res) => {
 // ==========================================
 // 2. SISTEM LOGIN AMAN & MANAJEMEN SESI (P0)
 // ==========================================
+// First-run bootstrap: buat satu akun admin jika database masih belum memiliki kredensial admin.
+app.get('/api/auth/bootstrap-status', (req, res) => {
+    const settings = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
+    res.json({ success: true, setupRequired: !settings?.admin_password_hash });
+});
+
+app.post('/api/auth/bootstrap-admin', (req, res) => {
+    const username = String(req.body?.username || '').trim();
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (username.length < 3 || username.length > 80) {
+        return res.status(400).json({ success: false, message: 'Username admin harus berisi 3–80 karakter.' });
+    }
+    if (password.length < 12 || password.length > 200) {
+        return res.status(400).json({ success: false, message: 'Kata sandi admin minimal 12 karakter.' });
+    }
+
+    const createInitialAdmin = db.transaction(() => {
+        const current = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
+        if (current?.admin_password_hash) return false;
+        const passwordHash = bcrypt.hashSync(password, 12);
+        db.prepare(`
+            UPDATE school_settings
+            SET admin_username = ?, admin_password_hash = ?,
+                updated_at = CURRENT_TIMESTAMP
+            WHERE id = 1
+        `).run(username, passwordHash);
+        return true;
+    });
+
+    try {
+        const created = createInitialAdmin();
+        if (!created) {
+            return res.status(409).json({ success: false, message: 'Akun admin sudah disiapkan. Silakan masuk.' });
+        }
+        logAudit(db, { user: { role: 'SYSTEM', userId: 1 }, ip: req.ip }, 'BOOTSTRAP_ADMIN', 'school_settings', 1, 'Akun admin awal dibuat');
+        return res.json({ success: true, message: 'Akun admin awal berhasil dibuat. Silakan masuk.' });
+    } catch (error) {
+        console.error('[Admin Bootstrap] Gagal membuat admin awal:', error);
+        return res.status(500).json({ success: false, message: 'Gagal menyiapkan akun admin awal.' });
+    }
+});
+
 app.post('/api/auth/login', (req, res) => {
     const { identifier, secret } = req.body;
     if (!identifier || !secret) {
