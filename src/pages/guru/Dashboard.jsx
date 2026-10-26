@@ -249,7 +249,7 @@ export default function GuruDashboard({
         }
     };
 
-    const teacherTitle = teacher.role === 'tendik' ? 'Tenaga Kependidikan' : 'Dewan Guru';
+    const teacherTitle = teacher?.is_penanggung_jawab ? 'Penanggung Jawab' : (String(teacher?.role || '').toLowerCase() === 'tendik' ? 'Tenaga Kependidikan' : 'Dewan Guru');
 
     const handleClassSort = (key) => {
         let direction = 'asc';
