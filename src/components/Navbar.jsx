@@ -1,5 +1,5 @@
 import React from 'react';
-import { School, LogOut, UserRound, ChevronDown, ShieldCheck, BookOpen, CalendarDays, Award, BarChart3, FileText } from 'lucide-react';
+import { School, LogOut, UserRound } from 'lucide-react';
 
 export default function Navbar({ currentUser, activeTab, onLogout, schoolInfo }) {
     const isTeacher = currentUser?.role === 'TEACHER';
