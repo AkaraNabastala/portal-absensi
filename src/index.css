@@ -151,3 +151,14 @@ html[data-sky-phase="night"] {
 @media (prefers-reduced-motion: reduce) {
   .portal-sky-canvas, .portal-topbar { transition: none !important; }
 }
+
+
+/* Mobile navigation is a stable, edge-to-edge dock and respects device safe areas. */
+@media (max-width: 767px) {
+  .portal-bottom-nav {
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding-bottom: max(.65rem, env(safe-area-inset-bottom, .65rem));
+    box-shadow: 0 -8px 28px rgba(21, 52, 81, .12);
+  }
+  .portal-content { padding-bottom: .5rem; }
+}
