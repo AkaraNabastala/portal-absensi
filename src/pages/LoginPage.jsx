@@ -7,9 +7,7 @@ export default function LoginPage({ onLoginSuccess }) {
     const [identifier, setIdentifier] = useState('');
     const [secret, setSecret] = useState('');
     const [showSecret, setShowSecret] = useState(false);
-    const [rememberMe, setRememberMe] = useState(false);
-    const [error, setError] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [rememberMe, setRememberMe] = useState(false);    const [loading, setLoading] = useState(false);
 
     const [schoolInfo, setSchoolInfo] = useState({
         school_name: 'NEBULA PRESENCE',
@@ -26,9 +24,7 @@ export default function LoginPage({ onLoginSuccess }) {
     }, []);
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        setError('');
-        setLoading(true);
+        e.preventDefault();        setLoading(true);
 
         try {
             const res = await fetch('/api/auth/login', {
