@@ -1899,6 +1899,8 @@ app.post('/api/sync/push-members', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
         ON CONFLICT(nip) DO UPDATE SET
             nik = excluded.nik,
+            username = CASE WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
+            password_hash = CASE WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
             full_name = excluded.full_name,
             assigned_division = COALESCE(excluded.assigned_division, teachers.assigned_division),
             role = excluded.role,
@@ -1923,19 +1925,26 @@ app.post('/api/sync/push-members', (req, res) => {
             if (isGuru) {
                 const nip = m.nipd || m.nisn || `GURU-${m.id}`;
                 const usernameSuffix = String(nip).toLowerCase().replace(/[^a-z0-9]/g, '').slice(-16) || String(m.id);
-                const uname = `guru.${usernameSuffix}`;
+                const hasLoginCredentials = Boolean(
+                    m.login_username &&
+                    /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(String(m.login_password_hash || ''))
+                );
+                const uname = hasLoginCredentials ? String(m.login_username).trim() : `guru.${usernameSuffix}`;
+                const passwordHash = hasLoginCredentials ? String(m.login_password_hash) : defaultGuruPass;
                 upsertTeacher.run(
                     nip,
                     nip,
                     uname,
-                    defaultGuruPass,
+                    passwordHash,
                     m.full_name,
                     m.supervisor_name ? div : null,
                     role === 'tendik' ? 'TENDIK'
                         : (role.includes('wali') ? 'WALI_KELAS'
                         : (role.includes('penanggung') || role === 'koordinator' ? 'PENANGGUNG_JAWAB' : 'GURU')),
                     m.phone_number || null,
-                    m.photo || null
+                    m.photo || null,
+                    hasLoginCredentials ? 1 : 0,
+                    hasLoginCredentials ? 1 : 0
                 );
                 syncedIds.push(m.id);
             } else if (studentRoles.has(role) && m.nisn) {
