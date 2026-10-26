@@ -135,7 +135,8 @@ const scheduleColumns = db.prepare('PRAGMA table_info(teaching_schedules)').all(
 if (!scheduleColumns.some((column) => column.name === 'nebula_schedule_id')) {
   db.exec('ALTER TABLE teaching_schedules ADD COLUMN nebula_schedule_id TEXT');
 }
-db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_schedules_nebula_id ON teaching_schedules (nebula_schedule_id) WHERE nebula_schedule_id IS NOT NULL');
+db.exec('DROP INDEX IF EXISTS idx_schedules_nebula_id');
+db.exec('CREATE UNIQUE INDEX IF NOT EXISTS idx_schedules_nebula_id ON teaching_schedules (nebula_schedule_id)');
 
 // 7. Jurnal Guru (Catatan Pertemuan Belajar Mengajar)
 db.exec(`
