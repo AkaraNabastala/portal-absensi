@@ -165,9 +165,11 @@ export default function LoginPage({ onLoginSuccess }) {
                                 <button
                                     type="button"
                                     onClick={() => setShowSecret(!showSecret)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold tracking-wider text-slate-500 hover:text-sky-700 transition cursor-pointer select-none"
+                                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-slate-500 hover:bg-sky-100 hover:text-sky-700 transition cursor-pointer"
+                                    aria-label={showSecret ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
+                                    title={showSecret ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi'}
                                 >
-                                    {showSecret ? 'SEMBUNYIKAN' : 'TAMPILKAN'}
+                                    {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                 </button>
                             </div>
                         </div>
