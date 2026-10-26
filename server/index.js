@@ -1665,7 +1665,7 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
             is_active = excluded.is_active
     `);
     let synced = 0, skipped = 0, disabled = 0;
-    const incomingIds = [...new Set(schedules.map(item => String(item?.id ?? '').trim()).filter(Boolean))];
+    const syncedRemoteIds = new Set();
     const tx = db.transaction(() => {
         for (const item of schedules) {
             const remoteId = String(item?.id ?? '').trim();
@@ -1682,19 +1682,19 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
             upsertSchedule.run(remoteId, teacher.id, division, subject, day, start, end,
                 String(item?.academic_year || '2026/2027'), String(item?.room || 'Ruang Kelas'),
                 item?.is_active === false || item?.is_active === 0 ? 0 : 1);
+            syncedRemoteIds.add(remoteId);
             synced++;
         }
 
-        // Perlakukan payload sebagai snapshot resmi Nebula. Rekonsiliasi hanya jika
-        // seluruh jadwal berhasil dipetakan agar kegagalan parsial tidak menonaktifkan jadwal valid.
-        if (skipped === 0) {
-            const result = incomingIds.length
-                ? db.prepare(`UPDATE teaching_schedules SET is_active = 0
-                    WHERE is_active = 1
-                      AND (nebula_schedule_id IS NULL OR nebula_schedule_id NOT IN (${incomingIds.map(() => '?').join(',')}))`).run(...incomingIds)
-                : db.prepare('UPDATE teaching_schedules SET is_active = 0 WHERE is_active = 1').run();
-            disabled = result.changes;
-        }
+        // Portal adalah cerminan data Nebula. Nonaktifkan jadwal lama/tidak terpetakan
+        // setiap kali menerima snapshot, termasuk ketika sebagian data gagal dipetakan.
+        const activeRemoteIds = [...syncedRemoteIds];
+        const result = activeRemoteIds.length
+            ? db.prepare(`UPDATE teaching_schedules SET is_active = 0
+                WHERE is_active = 1
+                  AND (nebula_schedule_id IS NULL OR nebula_schedule_id NOT IN (${activeRemoteIds.map(() => '?').join(',')}))`).run(...activeRemoteIds)
+            : db.prepare('UPDATE teaching_schedules SET is_active = 0 WHERE is_active = 1').run();
+        disabled = result.changes;
         db.prepare('UPDATE school_settings SET last_sync_at = CURRENT_TIMESTAMP WHERE id = 1').run();
     });
     try {
@@ -1702,10 +1702,10 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
         const success = skipped === 0;
         res.json({
             success, synced, skipped, disabled,
-            reconciled: success,
+            reconciled: true,
             message: success
                 ? `${synced} jadwal dari Nebula disinkronkan; ${disabled} jadwal lama yang tidak ada di sumber dinonaktifkan.`
-                : `${synced} jadwal disinkronkan, tetapi ${skipped} jadwal dilewati. Jadwal lama tidak direkonsiliasi agar data tidak hilang; periksa identitas guru dan data jadwal.`
+                : `${synced} jadwal berhasil disinkronkan, ${skipped} dilewati, dan ${disabled} jadwal lama/tidak terpetakan dinonaktifkan. Periksa identitas guru dan data jadwal.`
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Gagal menyinkronkan jadwal: ' + error.message });
