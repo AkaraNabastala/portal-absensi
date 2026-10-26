@@ -128,7 +128,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         Secret Token & Gateway Sinkronisasi
                     </h2>
                     <p className="text-xs sm:text-sm text-blue-100 mt-2 leading-relaxed">
-                        Salin Secret Token dan URL Gateway ini ke aplikasi absensi desktop lokal untuk menghubungkan pengiriman data scan absensi secara otomatis.
+                        Gunakan URL dan token ini untuk menghubungkan Portal dengan Nebula Presence.
                     </p>
                 </div>
             </div>
@@ -142,7 +142,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         </div>
                         <div>
                             <h3 className="text-sm sm:text-base font-bold text-slate-900">Secret Token / API Key</h3>
-                            <p className="text-xs text-slate-500">Token acak unik untuk keamanan komunikasi antar-sistem</p>
+                            <p className="text-xs text-slate-500">Token koneksi antar-aplikasi</p>
                         </div>
                     </div>
 
@@ -188,7 +188,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         </button>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-2">
-                        Token ini dihasilkan secara acak melalui cryptographic hash sehingga setiap sekolah/instansi memiliki token yang berbeda dan aman.
+                        Jaga token ini tetap rahasia.
                     </p>
                 </div>
 
