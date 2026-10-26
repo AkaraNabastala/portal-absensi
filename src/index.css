@@ -111,7 +111,7 @@ button { touch-action: manipulation; }
 
 @media (max-width: 767px) {
   .portal-content { padding-top: 1rem; }
-  .portal-content .rounded-\[2rem\], .portal-content .rounded-\[2\\.5rem\] { border-radius: 1.15rem; }
+  .portal-content [class~="rounded-[2rem]"], .portal-content [class~="rounded-[2.5rem]"] { border-radius: 1.15rem; }
   .portal-topbar .portal-mobile-user { max-width: 44vw; }
 }
 @media (prefers-reduced-motion: reduce) {
