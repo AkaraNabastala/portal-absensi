@@ -36,6 +36,8 @@ export default function GuruDashboard({
     const [absenceEnd, setAbsenceEnd] = useState(new Date().toISOString().split('T')[0]);
     const [absenceReason, setAbsenceReason] = useState('');
     const [absenceRows, setAbsenceRows] = useState([]);
+    const [absenceTeachers, setAbsenceTeachers] = useState([]);
+    const [selectedSubstitutes, setSelectedSubstitutes] = useState({});
     const [absenceMessage, setAbsenceMessage] = useState('');
     const [absenceBusy, setAbsenceBusy] = useState(false);
 
@@ -44,6 +46,11 @@ export default function GuruDashboard({
             const res = await authFetch('/api/teacher/absence-requests');
             const data = await res.json();
             if (data.success) setAbsenceRows(data.data || []);
+            if (teacher?.is_penanggung_jawab) {
+                const teachersRes = await authFetch('/api/teacher/active-list');
+                const teachersData = await teachersRes.json();
+                if (teachersData.success) setAbsenceTeachers(teachersData.data || []);
+            }
         } catch {
             setAbsenceMessage('Gagal memuat pengajuan izin.');
         }
@@ -52,6 +59,26 @@ export default function GuruDashboard({
     useEffect(() => {
         if (activeTab === 'teacher_absence') loadTeacherAbsences();
     }, [activeTab]);
+
+    const assignSubstitute = async (requestId) => {
+        const substituteTeacherId = Number(selectedSubstitutes[requestId]);
+        if (!substituteTeacherId) { setAbsenceMessage('Pilih guru pengganti terlebih dahulu.'); return; }
+        setAbsenceBusy(true);
+        setAbsenceMessage('Menyimpan penugasan pengganti…');
+        try {
+            const res = await authFetch(`/api/admin/absence-requests/${requestId}/assign`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ substituteTeacherId })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Gagal menetapkan pengganti.');
+            setAbsenceMessage(data.message || 'Guru pengganti berhasil ditetapkan.');
+            await loadTeacherAbsences();
+        } catch (error) {
+            setAbsenceMessage(error.message || 'Gagal menetapkan pengganti.');
+        } finally { setAbsenceBusy(false); }
+    };
 
     const submitTeacherAbsence = async (event) => {
         event.preventDefault();
@@ -461,7 +488,7 @@ export default function GuruDashboard({
             {activeTab === 'teacher_absence' && (
                 <section className="space-y-5">
                     <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
-                        <h2 className="text-lg font-bold text-slate-900">Izin Mengajar</h2>
+                        <h2 className="text-lg font-bold text-slate-900">{teacher?.is_penanggung_jawab ? 'Izin & Guru Pengganti' : 'Izin Mengajar'}</h2>
                         <p className="mt-1 text-sm text-slate-500">Admin akan menetapkan guru pengganti untuk jadwal Anda.</p>
                         {absenceMessage && <div role="status" className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">{absenceMessage}</div>}
                         <form onSubmit={submitTeacherAbsence} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -484,6 +511,15 @@ export default function GuruDashboard({
                                 <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
                                     <div><p className="text-sm font-semibold text-slate-800">{row.start_date} – {row.end_date}</p><p className="text-xs text-slate-500">{row.reason}</p>{row.substitute_name && <p className="mt-1 text-xs text-emerald-700">Pengganti: {row.substitute_name}</p>}</div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${row.status === 'DISETUJUI' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.status}</span>
+                                    {teacher?.is_penanggung_jawab && row.status !== 'DISETUJUI' && (
+                                        <div className="mt-3 flex w-full flex-col gap-2 sm:flex-row">
+                                            <select value={selectedSubstitutes[row.id] || ''} onChange={e => setSelectedSubstitutes(prev => ({ ...prev, [row.id]: e.target.value }))} className="min-w-0 flex-1 rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                                                <option value="">Pilih guru pengganti</option>
+                                                {absenceTeachers.filter(item => Number(item.id) !== Number(row.teacher_id)).map(item => <option key={item.id} value={item.id}>{item.full_name} · {item.nip}</option>)}
+                                            </select>
+                                            <button type="button" disabled={absenceBusy} onClick={() => assignSubstitute(row.id)} className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{absenceBusy ? 'Menyimpan…' : 'Tetapkan Pengganti'}</button>
+                                        </div>
+                                    )}
                                 </div>
                             ))}
                         </div>
