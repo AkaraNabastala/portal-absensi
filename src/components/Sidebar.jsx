@@ -20,6 +20,8 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const isTeacher = currentUser?.role === 'TEACHER';
     const isAdmin = currentUser?.role === 'ADMIN';
     const isWaliKelas = isTeacher && currentUser?.teacher?.is_wali_kelas;
+    const isPenanggungJawab = isTeacher && currentUser?.teacher?.is_penanggung_jawab;
+    const canManageClass = isWaliKelas || isPenanggungJawab;
     const assignedClass = currentUser?.teacher?.assigned_division || 'Kelas';
 
     // Dropdown terbuka otomatis jika tab aktif adalah salah satu submenu kelas
@@ -33,6 +35,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
         { id: 'admin_journals', label: 'Monitoring Jurnal', icon: BookOpen },
         { id: 'ekskul', label: 'Ekskul & Pembina', icon: Users },
         { id: 'sync', label: 'Cloud Sync', icon: FileText },
+        { id: 'substitutes', label: 'Izin & Pengganti', icon: Users },
     ];
 
     // 1. Menu Pribadi (Siswa / Wali Murid)
@@ -60,7 +63,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     ];
 
     // 3. Menu Khusus Kelas Binaan (Hanya untuk Wali Kelas, 1 kata ringkas)
-    const waliKelasMenus = isWaliKelas ? [
+    const waliKelasMenus = canManageClass ? [
         { id: 'class_daily', label: 'Presensi', icon: CalendarDays },
         { id: 'class_monthly', label: 'Rekap', icon: BarChart3 },
         { id: 'class_leave', label: 'Izin', icon: CheckSquare },
@@ -207,7 +210,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                 )}
 
                 {/* Menu Khusus Kelas Binaan (Dropdown Collapsible untuk Wali Kelas) */}
-                {isWaliKelas && (
+                {canManageClass && (
                     <div className="pt-2 border-t border-slate-100">
                         {/* Dropdown Header Button */}
                         <button
@@ -221,11 +224,11 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                         >
                             <div className="flex items-center gap-2.5 truncate">
                                 <GraduationCap className={`w-4 h-4 shrink-0 ${isClassTabActive ? 'text-blue-600' : 'text-slate-500'}`} />
-                                <span className="truncate">Kelas {assignedClass}</span>
+                                <span className="truncate">{isWaliKelas ? `Kelas ${assignedClass}` : 'Penanggung Jawab'}</span>
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                                 <span className="text-[10px] uppercase font-black px-1.5 py-0.5 rounded-md bg-blue-100/70 text-blue-700">
-                                    Wali
+                                    {isWaliKelas ? 'Wali' : 'PJ'}
                                 </span>
                                 {isClassOpen ? (
                                     <ChevronDown className="w-4 h-4 text-slate-400" />
