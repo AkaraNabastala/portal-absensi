@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Lock, User, Eye, EyeOff, ArrowRight, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
+import { Lock, User, Eye, EyeOff, ArrowRight, RefreshCw, ShieldCheck } from 'lucide-react';
 import nabastalaLogo from '../assets/logo-nabastala.png';
 import { toast } from 'react-toastify';
 
