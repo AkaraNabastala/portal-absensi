@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { authFetch } from '../../utils/api';
 import { 
     Clock, 
     CheckCircle2, 
@@ -29,7 +30,50 @@ export default function GuruDashboard({
     schoolInfo 
 }) {
     const isWaliKelas = !!teacher?.is_wali_kelas;
-    const currentDivision = teacher?.assigned_division || '';
+    const canManageClass = isWaliKelas || !!teacher?.is_penanggung_jawab;
+    const currentDivision = teacher?.assigned_division || teacher?.managed_divisions?.[0] || '';
+    const [absenceStart, setAbsenceStart] = useState(new Date().toISOString().split('T')[0]);
+    const [absenceEnd, setAbsenceEnd] = useState(new Date().toISOString().split('T')[0]);
+    const [absenceReason, setAbsenceReason] = useState('');
+    const [absenceRows, setAbsenceRows] = useState([]);
+    const [absenceMessage, setAbsenceMessage] = useState('');
+    const [absenceBusy, setAbsenceBusy] = useState(false);
+
+    const loadTeacherAbsences = async () => {
+        try {
+            const res = await authFetch('/api/teacher/absence-requests');
+            const data = await res.json();
+            if (data.success) setAbsenceRows(data.data || []);
+        } catch {
+            setAbsenceMessage('Gagal memuat pengajuan izin.');
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'teacher_absence') loadTeacherAbsences();
+    }, [activeTab]);
+
+    const submitTeacherAbsence = async (event) => {
+        event.preventDefault();
+        setAbsenceBusy(true);
+        setAbsenceMessage('');
+        try {
+            const res = await authFetch('/api/teacher/absence-requests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ startDate: absenceStart, endDate: absenceEnd, reason: absenceReason })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Pengajuan izin gagal.');
+            setAbsenceMessage(data.message || 'Pengajuan izin terkirim.');
+            setAbsenceReason('');
+            await loadTeacherAbsences();
+        } catch (error) {
+            setAbsenceMessage(error.message || 'Gagal mengirim pengajuan izin.');
+        } finally {
+            setAbsenceBusy(false);
+        }
+    };
 
     // ==========================================
     // 1. STATE & DATA PRESENSI PRIBADI GURU
@@ -414,6 +458,39 @@ export default function GuruDashboard({
                 />
             )}
 
+            {activeTab === 'teacher_absence' && (
+                <section className="space-y-5">
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+                        <h2 className="text-lg font-bold text-slate-900">Izin Mengajar</h2>
+                        <p className="mt-1 text-sm text-slate-500">Admin akan menetapkan guru pengganti untuk jadwal Anda.</p>
+                        {absenceMessage && <div role="status" className="mt-4 rounded-xl bg-blue-50 px-4 py-3 text-sm text-blue-800">{absenceMessage}</div>}
+                        <form onSubmit={submitTeacherAbsence} className="mt-4 grid gap-3 sm:grid-cols-2">
+                            <label className="text-sm font-medium text-slate-700">Mulai
+                                <input type="date" required value={absenceStart} onChange={e => setAbsenceStart(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+                            </label>
+                            <label className="text-sm font-medium text-slate-700">Sampai
+                                <input type="date" required min={absenceStart} value={absenceEnd} onChange={e => setAbsenceEnd(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" />
+                            </label>
+                            <label className="text-sm font-medium text-slate-700 sm:col-span-2">Alasan
+                                <textarea required maxLength={500} value={absenceReason} onChange={e => setAbsenceReason(e.target.value)} className="mt-1 block w-full rounded-xl border border-slate-300 px-3 py-2" rows={3} placeholder="Sakit, keperluan keluarga, dan sebagainya" />
+                            </label>
+                            <button disabled={absenceBusy} className="rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50 sm:col-span-2">{absenceBusy ? 'Mengirim...' : 'Ajukan Izin'}</button>
+                        </form>
+                    </div>
+                    <div className="rounded-2xl border border-slate-200 bg-white p-5">
+                        <h3 className="font-bold text-slate-900">Riwayat Pengajuan</h3>
+                        <div className="mt-3 space-y-2">
+                            {absenceRows.length === 0 ? <p className="text-sm text-slate-500">Belum ada pengajuan.</p> : absenceRows.map(row => (
+                                <div key={row.id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
+                                    <div><p className="text-sm font-semibold text-slate-800">{row.start_date} – {row.end_date}</p><p className="text-xs text-slate-500">{row.reason}</p>{row.substitute_name && <p className="mt-1 text-xs text-emerald-700">Pengganti: {row.substitute_name}</p>}</div>
+                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${row.status === 'DISETUJUI' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{row.status}</span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
+
             {activeTab === 'teacher_ekskul' && (
                 <TeacherEkskulTab
                     teacher={teacher}
@@ -421,7 +498,7 @@ export default function GuruDashboard({
                 />
             )}
 
-            {activeTab === 'class_daily' && isWaliKelas && (
+            {activeTab === 'class_daily' && canManageClass && (
                 <ClassDailyTab
                     currentDivision={currentDivision}
                     classFilterDate={classFilterDate}
@@ -432,7 +509,7 @@ export default function GuruDashboard({
                 />
             )}
 
-            {activeTab === 'class_monthly' && isWaliKelas && (
+            {activeTab === 'class_monthly' && canManageClass && (
                 <ClassMonthlyTab
                     currentDivision={currentDivision}
                     classFilterBulan={classFilterBulan}
@@ -445,7 +522,7 @@ export default function GuruDashboard({
                 />
             )}
 
-            {activeTab === 'class_leave' && isWaliKelas && (
+            {activeTab === 'class_leave' && canManageClass && (
                 <ClassLeaveTab
                     currentDivision={currentDivision}
                     classStudents={classStudents}
@@ -469,7 +546,7 @@ export default function GuruDashboard({
                 />
             )}
 
-            {activeTab === 'class_students' && isWaliKelas && (
+            {activeTab === 'class_students' && canManageClass && (
                 <ClassStudentsTab
                     currentDivision={currentDivision}
                     classStudents={classStudents}
