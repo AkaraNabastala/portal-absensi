@@ -17,7 +17,6 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const [copiedToken, setCopiedToken] = useState(false);
     const [copiedUrl, setCopiedUrl] = useState(false);
     const [syncingNow, setSyncingNow] = useState(false);
-    const [cleaningDemo, setCleaningDemo] = useState(false);
     const [generatingToken, setGeneratingToken] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusDialog, setStatusDialog] = useState(null);
@@ -56,28 +55,6 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
         navigator.clipboard.writeText(gatewayUrl);
         setCopiedUrl(true);
         setTimeout(() => setCopiedUrl(false), 2000);
-    };
-
-    const handleCleanupDemoData = async () => {
-        const confirmed = window.confirm('Hapus hanya data contoh bawaan Portal yang dikenali (siswa BC-1001–BC-1005, guru guru.budi/guru.siti/guru.hendra, dan ekskul contoh)? Data lain tidak disentuh. Pastikan database sudah dicadangkan.');
-        if (!confirmed) return;
-        setCleaningDemo(true);
-        setStatusMessage('');
-        setStatusDialog({ type: 'progress', message: 'Membersihkan data contoh…' });
-        try {
-            const res = await authFetch('/api/admin/cleanup-demo-data', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
-            const data = await res.json();
-            if (data.success) {
-                setStatusMessage(data.message || 'Data contoh berhasil dibersihkan.');
-                setStatusDialog({ type: 'success', message: data.message || 'Data contoh berhasil dibersihkan.' });
-            } else {
-                setStatusDialog({ type: 'error', message: data.message || 'Gagal membersihkan data contoh.' });
-            }
-        } catch {
-            setStatusDialog({ type: 'error', message: 'Gagal menghubungi server untuk membersihkan data contoh.' });
-        } finally {
-            setCleaningDemo(false);
-        }
     };
 
     const handleTriggerDirectSync = async () => {
@@ -119,15 +96,15 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
             )}
 
             {/* Banner Sinkronisasi */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xs">
+            <div className="bg-gradient-to-br from-slate-950 via-blue-900 to-sky-700 rounded-3xl p-6 sm:p-8 text-white shadow-xs">
                 <div className="max-w-2xl">
-                    <span className="text-xs uppercase font-bold tracking-wider text-blue-200 block mb-1">
+                    <span className="text-xs uppercase font-bold tracking-wider text-sky-200 block mb-1">
                         Koneksi Aplikasi Absensi
                     </span>
                     <h2 className="text-xl sm:text-2xl font-black tracking-tight">
                         Secret Token & Gateway Sinkronisasi
                     </h2>
-                    <p className="text-xs sm:text-sm text-blue-100 mt-2 leading-relaxed">
+                    <p className="text-xs sm:text-sm text-sky-100 mt-2 leading-relaxed">
                         Gunakan URL dan token ini untuk menghubungkan Portal dengan Nebula Presence.
                     </p>
                 </div>
@@ -147,14 +124,6 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     </div>
 
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleCleanupDemoData}
-                            disabled={cleaningDemo}
-                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
-                            title="Hapus hanya data contoh bawaan yang dikenali"
-                        >
-                            <span>{cleaningDemo ? 'Membersihkan...' : 'Bersihkan Data Contoh'}</span>
-                        </button>
                         <button
                             onClick={handleTriggerDirectSync}
                             disabled={syncingNow}
