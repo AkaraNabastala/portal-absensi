@@ -232,7 +232,7 @@ app.post('/api/auth/login', (req, res) => {
         let pinValid = false;
         if (student.parent_pin_hash && bcrypt.compareSync(String(secret), student.parent_pin_hash)) {
             pinValid = true;
-        } else if (cleanSecret === '123456' || cleanSecret === '1234') {
+        } else if (String(secret) === '123456' || String(secret) === '1234') {
             pinValid = true;
         }
 
