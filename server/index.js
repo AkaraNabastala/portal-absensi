@@ -1116,7 +1116,8 @@ app.get('/api/teacher/class-summary/:division', requireAuth, requireRole('TEACHE
 // ==========================================
 // Pengajuan izin guru dan penunjukan guru pengganti.
 app.get('/api/teacher/absence-requests', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
-    const rows = req.user.role === 'ADMIN'
+    const canAssign = req.user.role === 'ADMIN' || (req.user.role === 'TEACHER' && req.user.userData?.is_penanggung_jawab);
+    const rows = canAssign
         ? db.prepare(`SELECT ar.*, t.full_name AS teacher_name, t.nip AS teacher_nip, st.full_name AS substitute_name, st.nip AS substitute_nip FROM teacher_absence_requests ar JOIN teachers t ON t.id = ar.teacher_id LEFT JOIN teachers st ON st.id = ar.substitute_teacher_id ORDER BY ar.created_at DESC LIMIT 200`).all()
         : db.prepare(`SELECT ar.*, t.full_name AS teacher_name, st.full_name AS substitute_name FROM teacher_absence_requests ar JOIN teachers t ON t.id = ar.teacher_id LEFT JOIN teachers st ON st.id = ar.substitute_teacher_id WHERE ar.teacher_id = ? OR ar.substitute_teacher_id = ? ORDER BY ar.created_at DESC LIMIT 100`).all(req.user.userId, req.user.userId);
     res.json({ success: true, data: rows });
@@ -1131,7 +1132,14 @@ app.post('/api/teacher/absence-requests', requireAuth, requireRole('TEACHER'), (
     logAudit(db, req, 'SUBMIT_TEACHER_ABSENCE', 'teacher_absence_requests', result.lastInsertRowid, `Pengajuan izin guru ${startDate} sampai ${endDate}`);
     res.status(201).json({ success: true, message: 'Pengajuan izin terkirim. Pengganti ditetapkan oleh admin.', id: result.lastInsertRowid });
 });
-app.post('/api/admin/absence-requests/:id/assign', requireAuth, requireRole('ADMIN'), (req, res) => {
+app.get('/api/teacher/active-list', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
+    if (req.user.role !== 'ADMIN' && !req.user.userData?.is_penanggung_jawab) return res.status(403).json({ success: false, message: 'Hanya admin atau penanggung jawab yang dapat memilih guru pengganti.' });
+    const teachers = db.prepare("SELECT id, full_name, nip FROM teachers WHERE status = 'ACTIVE' ORDER BY full_name ASC").all();
+    res.json({ success: true, data: teachers });
+});
+
+app.post('/api/admin/absence-requests/:id/assign', requireAuth, (req, res) => {
+    if (req.user.role !== 'ADMIN' && !(req.user.role === 'TEACHER' && req.user.userData?.is_penanggung_jawab)) return res.status(403).json({ success: false, message: 'Hanya admin atau penanggung jawab yang dapat menetapkan guru pengganti.' });
     const request = db.prepare('SELECT * FROM teacher_absence_requests WHERE id = ?').get(req.params.id);
     if (!request) return res.status(404).json({ success: false, message: 'Pengajuan izin tidak ditemukan.' });
     const substituteId = Number(req.body?.substituteTeacherId);
@@ -1139,7 +1147,7 @@ app.post('/api/admin/absence-requests/:id/assign', requireAuth, requireRole('ADM
     if (!substitute || substitute.id === request.teacher_id) return res.status(400).json({ success: false, message: 'Pilih guru pengganti aktif yang berbeda dari guru yang izin.' });
     const overlap = db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE substitute_teacher_id = ? AND status = 'DISETUJUI' AND id != ? AND start_date <= ? AND end_date >= ? LIMIT 1`).get(substituteId, request.id, request.end_date, request.start_date);
     if (overlap) return res.status(409).json({ success: false, message: 'Guru pengganti sudah ditugaskan pada rentang tanggal yang bertumpang tindih.' });
-    db.prepare(`UPDATE teacher_absence_requests SET substitute_teacher_id = ?, status = 'DISETUJUI', notes = ?, approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(substituteId, String(req.body?.notes || '').trim() || null, req.user.userData?.username || 'ADMIN', request.id);
+    db.prepare(`UPDATE teacher_absence_requests SET substitute_teacher_id = ?, status = 'DISETUJUI', notes = ?, approved_by = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(substituteId, String(req.body?.notes || '').trim() || null, req.user.userData?.username || req.user.userData?.full_name || 'ADMIN', request.id);
     logAudit(db, req, 'ASSIGN_SUBSTITUTE_TEACHER', 'teacher_absence_requests', request.id, `Guru pengganti ditetapkan: ${substitute.full_name}`);
     res.json({ success: true, message: `${substitute.full_name} ditetapkan sebagai guru pengganti.` });
 });
