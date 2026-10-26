@@ -10,6 +10,7 @@ import {
     Check,
     X
 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function AdminEkskulTab() {
     const [extracurriculars, setExtracurriculars] = useState([]);
@@ -31,8 +32,8 @@ export default function AdminEkskulTab() {
         try {
             setLoading(true);
             const [resEkskul, resTeachers] = await Promise.all([
-                fetch('/api/extracurriculars').then(r => r.json()),
-                fetch('/api/admin/teachers').then(r => r.json())
+                authFetch('/api/extracurriculars').then(r => r.json()),
+                authFetch('/api/admin/teachers').then(r => r.json())
             ]);
             if (resEkskul.success) setExtracurriculars(resEkskul.data || []);
             if (resTeachers.success) {
