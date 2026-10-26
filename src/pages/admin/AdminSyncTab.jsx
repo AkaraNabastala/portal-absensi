@@ -5,7 +5,10 @@ import {
     Copy, 
     Check, 
     ShieldCheck,
-    Globe
+    Globe,
+    AlertCircle,
+    CheckCircle2,
+    X
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -17,6 +20,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const [cleaningDemo, setCleaningDemo] = useState(false);
     const [generatingToken, setGeneratingToken] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    const [statusDialog, setStatusDialog] = useState(null);
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const gatewayUrl = `${origin}/api/sync`;
@@ -59,16 +63,18 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
         if (!confirmed) return;
         setCleaningDemo(true);
         setStatusMessage('');
+        setStatusDialog({ type: 'progress', message: 'Membersihkan data contoh…' });
         try {
             const res = await authFetch('/api/admin/cleanup-demo-data', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
             const data = await res.json();
             if (data.success) {
                 setStatusMessage(data.message || 'Data contoh berhasil dibersihkan.');
+                setStatusDialog({ type: 'success', message: data.message || 'Data contoh berhasil dibersihkan.' });
             } else {
-                alert(data.message || 'Gagal membersihkan data contoh.');
+                setStatusDialog({ type: 'error', message: data.message || 'Gagal membersihkan data contoh.' });
             }
         } catch {
-            alert('Gagal menghubungi server untuk membersihkan data contoh.');
+            setStatusDialog({ type: 'error', message: 'Gagal menghubungi server untuk membersihkan data contoh.' });
         } finally {
             setCleaningDemo(false);
         }
@@ -77,6 +83,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const handleTriggerDirectSync = async () => {
         setSyncingNow(true);
         setStatusMessage('');
+        setStatusDialog({ type: 'progress', message: 'Menghubungkan Portal dengan Nebula Presence…' });
         try {
             const res = await authFetch('/api/admin/trigger-direct-sync', {
                 method: 'POST',
@@ -89,12 +96,13 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     if (onSettingsChange) onSettingsChange(data.settings);
                 }
                 setStatusMessage(data.message || 'Sinkronisasi dengan Nebula Presence berhasil!');
+                setStatusDialog({ type: 'success', message: data.message || 'Sinkronisasi dengan Nebula Presence berhasil!' });
                 setTimeout(() => setStatusMessage(''), 4000);
             } else {
-                alert(data.message || 'Gagal sinkronisasi.');
+                setStatusDialog({ type: 'error', message: data.message || 'Gagal sinkronisasi.' });
             }
         } catch {
-            alert('Gagal menghubungi server.');
+            setStatusDialog({ type: 'error', message: 'Gagal menghubungi server.' });
         } finally {
             setSyncingNow(false);
         }
@@ -206,6 +214,21 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     </div>
                 </div>
             </div>
+            {statusDialog && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-live="polite">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                                {statusDialog.type === 'progress' ? <RefreshCw className="mt-0.5 h-6 w-6 animate-spin text-blue-600" /> : statusDialog.type === 'success' ? <CheckCircle2 className="mt-0.5 h-6 w-6 text-emerald-600" /> : <AlertCircle className="mt-0.5 h-6 w-6 text-rose-600" />}
+                                <div><h3 className="font-bold text-slate-900">{statusDialog.type === 'progress' ? 'Sedang Diproses' : statusDialog.type === 'success' ? 'Berhasil' : 'Terjadi Kesalahan'}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{statusDialog.message}</p></div>
+                            </div>
+                            {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Tutup"><X className="h-4 w-4" /></button>}
+                        </div>
+                        {statusDialog.type === 'progress' && <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-2/3 animate-pulse rounded-full bg-blue-600" /></div>}
+                        {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white">Tutup</button>}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
