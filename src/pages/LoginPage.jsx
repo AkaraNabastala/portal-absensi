@@ -175,7 +175,7 @@ export default function LoginPage({ onLoginSuccess }) {
                             </span>
                         </div>
 
-                        {/* Tombol Utama Masuk ke akun */}
+                        {/* Tombol utama autentikasi */}
                         <button
                             type="submit"
                             disabled={loading}
@@ -185,7 +185,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                 <RefreshCw className="w-4 h-4 animate-spin text-white" />
                             ) : (
                                 <>
-                                    <span>Masuk ke akun</span>
+                                    <span>Masuk</span>
                                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                                 </>
                             )}
