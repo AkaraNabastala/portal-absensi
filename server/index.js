@@ -1753,14 +1753,19 @@ app.post('/api/sync/push-members', (req, res) => {
             phone_number = excluded.phone_number
     `);
 
+    // NIP adalah identitas unik guru. Sinkronisasi berulang harus meng-update berdasarkan NIP,
+    // bukan username buatan dari nama, agar tidak gagal pada UNIQUE(teachers.nip).
     const upsertTeacher = db.prepare(`
         INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, photo_url, status)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
-        ON CONFLICT(username) DO UPDATE SET
-            nip = excluded.nip,
+        ON CONFLICT(nip) DO UPDATE SET
+            nik = excluded.nik,
             full_name = excluded.full_name,
             assigned_division = COALESCE(excluded.assigned_division, teachers.assigned_division),
-            photo_url = COALESCE(excluded.photo_url, teachers.photo_url)
+            role = excluded.role,
+            phone_number = COALESCE(excluded.phone_number, teachers.phone_number),
+            photo_url = COALESCE(excluded.photo_url, teachers.photo_url),
+            status = 'ACTIVE'
     `);
 
     const nonClass = ['Guru', 'Tendik', 'Staff', 'Pegawai', 'Umum', 'Karyawan', 'Semua'];
@@ -1773,7 +1778,8 @@ app.post('/api/sync/push-members', (req, res) => {
 
             if (isGuru) {
                 const nip = m.nipd || m.nisn || `GURU-${m.id}`;
-                const uname = `guru.${m.full_name.toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 10)}`;
+                const usernameSuffix = String(nip).toLowerCase().replace(/[^a-z0-9]/g, '').slice(-16) || String(m.id);
+                const uname = `guru.${usernameSuffix}`;
                 upsertTeacher.run(
                     nip,
                     nip,
