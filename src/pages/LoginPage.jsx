@@ -6,6 +6,8 @@ import { toast } from 'react-toastify';
 export default function LoginPage({ onLoginSuccess }) {
     const [identifier, setIdentifier] = useState('');
     const [secret, setSecret] = useState('');
+    const [confirmSecret, setConfirmSecret] = useState('');
+    const [setupRequired, setSetupRequired] = useState(false);
     const [showSecret, setShowSecret] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);    const [loading, setLoading] = useState(false);
 
@@ -29,6 +31,11 @@ export default function LoginPage({ onLoginSuccess }) {
                 if (res.success && res.data) setSchoolInfo(res.data);
             })
             .catch(() => { });
+
+        fetch('/api/auth/bootstrap-status')
+            .then(res => res.json())
+            .then(res => setSetupRequired(Boolean(res.success && res.setupRequired)))
+            .catch(() => { });
     }, []);
 
     const handleSubmit = async (e) => {
@@ -40,6 +47,34 @@ export default function LoginPage({ onLoginSuccess }) {
         setLoading(true);
 
         try {
+            if (setupRequired) {
+                if (secret.length < 12) {
+                    toast.error('Kata sandi admin minimal 12 karakter.');
+                    return;
+                }
+                if (secret !== confirmSecret) {
+                    toast.error('Konfirmasi kata sandi tidak cocok.');
+                    return;
+                }
+                const res = await fetch('/api/auth/bootstrap-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username: identifier, password: secret })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    toast.success(data.message || 'Akun admin awal berhasil dibuat.');
+                    setSetupRequired(false);
+                    setSecret('');
+                    setConfirmSecret('');
+                    setRememberMe(false);
+                    try { localStorage.removeItem('portal_remembered_identifier'); } catch (_) {}
+                } else {
+                    toast.error(data.message || 'Gagal menyiapkan akun admin.');
+                }
+                return;
+            }
+
             const res = await fetch('/api/auth/login', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -132,7 +167,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         {/* Input 1: NISN / NIP */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
-                                ID Pengguna (NISN / NIP)
+                                {setupRequired ? 'Username Admin' : 'ID Pengguna (NISN / NIP)'}
                             </label>
                             <div className="relative group">
                                 <input
@@ -140,7 +175,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
-                                    placeholder="Masukkan NISN / NIP / ID Anda"
+                                    placeholder={setupRequired ? "Buat username admin" : "Masukkan NISN / NIP / ID Anda"}
                                     className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-medium"
                                 />
                                 <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-sky-700 transition-colors" />
@@ -150,7 +185,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         {/* Input 2: NIPD / Sandi */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
-                                Password
+                                {setupRequired ? 'Kata Sandi Admin' : 'Password'}
                             </label>
                             <div className="relative group">
                                 <input
@@ -158,7 +193,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={secret}
                                     onChange={(e) => setSecret(e.target.value)}
-                                    placeholder="Masukkan kata sandi"
+                                    placeholder={setupRequired ? "Minimal 12 karakter" : "Masukkan kata sandi"}
                                     className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-16 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-mono"
                                 />
                                 <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-sky-700 transition-colors" />
@@ -174,21 +209,37 @@ export default function LoginPage({ onLoginSuccess }) {
                             </div>
                         </div>
 
-                        {/* Remember Me Option */}
-                        <div className="flex items-center justify-between text-sm pt-1">
-                            <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 hover:text-slate-800 transition">
-                                <input
-                                    type="checkbox"
-                                    checked={rememberMe}
-                                    onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
-                                />
-                                <span className="font-medium text-xs sm:text-sm">Ingat Saya</span>
-                            </label>
-                            <span className="text-xs text-slate-400 font-medium">
-                                Pusat Bantuan
-                            </span>
-                        </div>
+                        {setupRequired && (
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">Konfirmasi Kata Sandi</label>
+                                <div className="relative group">
+                                    <input
+                                        type="password"
+                                        required
+                                        minLength={12}
+                                        value={confirmSecret}
+                                        onChange={(e) => setConfirmSecret(e.target.value)}
+                                        placeholder="Ulangi kata sandi admin"
+                                        className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-mono"
+                                    />
+                                    <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                </div>
+                            </div>
+                        )}
+
+                        {setupRequired ? (
+                            <div className="rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2.5 text-xs leading-relaxed text-sky-900">
+                                Buat akun admin awal. Gunakan kata sandi unik minimal 12 karakter; setelah sinkronisasi pertama, akun admin akan mengikuti kredensial dari Nebula Presence.
+                            </div>
+                        ) : (
+                            <div className="flex items-center justify-between text-sm pt-1">
+                                <label className="flex items-center gap-2 cursor-pointer select-none text-slate-600 hover:text-slate-800 transition">
+                                    <input type="checkbox" checked={rememberMe} onChange={(e) => setRememberMe(e.target.checked)} className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer" />
+                                    <span className="font-medium text-xs sm:text-sm">Ingat Saya</span>
+                                </label>
+                                <span className="text-xs text-slate-400 font-medium">Pusat Bantuan</span>
+                            </div>
+                        )}
 
                         {/* Tombol utama autentikasi */}
                         <button
@@ -200,8 +251,8 @@ export default function LoginPage({ onLoginSuccess }) {
                                 <RefreshCw className="w-4 h-4 animate-spin text-white" />
                             ) : (
                                 <>
-                                    <span>Masuk</span>
-                                    <ArrowRight className="w-4 h-4 stroke-[2.5]" />
+                                    <span>{setupRequired ? 'Buat Akun Admin' : 'Masuk'}</span>
+                                    {setupRequired ? <ShieldCheck className="w-4 h-4" /> : <ArrowRight className="w-4 h-4 stroke-[2.5]" />}
                                 </>
                             )}
                         </button>
