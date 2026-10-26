@@ -220,7 +220,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         <div className="flex items-start justify-between gap-3">
                             <div className="flex items-start gap-3">
                                 {statusDialog.type === 'progress' ? <RefreshCw className="mt-0.5 h-6 w-6 animate-spin text-blue-600" /> : statusDialog.type === 'success' ? <CheckCircle2 className="mt-0.5 h-6 w-6 text-emerald-600" /> : <AlertCircle className="mt-0.5 h-6 w-6 text-rose-600" />}
-                                <div><h3 className="font-bold text-slate-900">{statusDialog.type === 'progress' ? 'Sedang Diproses' : statusDialog.type === 'success' ? 'Berhasil' : 'Terjadi Kesalahan'}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{statusDialog.message}</p></div>
+                                <div><h3 className="font-bold text-slate-900">{statusDialog.type === 'progress' ? 'Sedang Diproses' : statusDialog.type === 'success' ? 'Berhasil' : 'Perlu Diperiksa'}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{statusDialog.message}</p>{Array.isArray(statusDialog.errors) && statusDialog.errors.length > 0 && <ul className="mt-3 max-h-32 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-700">{statusDialog.errors.slice(0, 6).map((error, index) => <li key={index}>{String(error)}</li>)}</ul>}</div>
                             </div>
                             {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Tutup"><X className="h-4 w-4" /></button>}
                         </div>
