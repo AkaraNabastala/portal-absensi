@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import Navbar from './components/Navbar';
 import { authFetch } from './utils/api';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import LoginPage from './pages/LoginPage';
 import WaliDashboard from './pages/wali/Dashboard';
@@ -87,7 +89,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
   }, [userRole, studentId, teacherId, teacherCanManageClass, teacherDiv]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex font-sans antialiased relative">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/40 to-slate-100 text-slate-800 flex font-sans antialiased relative">
       {/* Desktop Sidebar (Seragam untuk Siswa, Guru, dan Admin) */}
       <Sidebar
         currentUser={currentUser}
@@ -107,7 +109,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
           schoolInfo={schoolInfo} 
         />
 
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
+        <main className="flex-1 w-full max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-7">
           {currentUser.role === 'ADMIN' ? (
             <AdminDashboard
               currentUser={currentUser}
@@ -183,6 +185,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    toast.info('Anda telah keluar dari Portal.');
     setCurrentUser(null);
     try {
       authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
@@ -230,6 +233,7 @@ export default function App() {
         {/* Fallback ke Home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ToastContainer position="top-right" autoClose={3200} newestOnTop closeOnClick pauseOnFocusLoss draggable theme="light" toastClassName="!rounded-2xl !border !border-slate-200 !shadow-xl" />
     </BrowserRouter>
   );
 }
