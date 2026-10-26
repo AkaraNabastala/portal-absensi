@@ -87,6 +87,13 @@ const canCoverSchedule = (req, schedule, date) => {
     if (Number(schedule.teacher_id) === Number(req.user.userId)) return true;
     return Boolean(db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE teacher_id = ? AND substitute_teacher_id = ? AND status = 'DISETUJUI' AND start_date <= ? AND end_date >= ? LIMIT 1`).get(schedule.teacher_id, req.user.userId, date, date));
 };
+const canManageEkskul = (req, extracurricularId) => {
+    if (req.user?.role === 'ADMIN') return true;
+    if (req.user?.role !== 'TEACHER') return false;
+    const item = db.prepare('SELECT mentor_teacher_id FROM extracurriculars WHERE id = ?').get(extracurricularId);
+    return Boolean(item && Number(item.mentor_teacher_id) === Number(req.user.userId));
+};
+
 const canTeachDivision = (req, division, date = new Date().toISOString().split('T')[0]) => {
     if (canAccessDivision(req, division)) return true;
     if (req.user?.role !== 'TEACHER' || !division) return false;
@@ -817,6 +824,7 @@ app.delete('/api/admin/extracurriculars/:id', requireAuth, requireRole('ADMIN'),
 // Daftar Anggota Ekskul
 app.get('/api/extracurriculars/:id/members', requireAuth, (req, res) => {
     const { id } = req.params;
+    if (!canManageEkskul(req, id)) return res.status(403).json({ success: false, message: 'Akses ditolak: ekskul ini bukan binaan Anda.' });
     const members = db.prepare(`
         SELECT m.id, m.nisn, m.nipd, m.full_name, m.division, m.gender, m.photo_url, em.joined_at, em.status
         FROM extracurricular_members em
@@ -875,6 +883,7 @@ app.delete('/api/extracurriculars/:id/members/:memberId', requireAuth, requireRo
 // Ambil Riwayat Sesi Pertemuan Ekskul
 app.get('/api/extracurriculars/:id/sessions', requireAuth, (req, res) => {
     const { id } = req.params;
+    if (!canManageEkskul(req, id)) return res.status(403).json({ success: false, message: 'Akses ditolak: ekskul ini bukan binaan Anda.' });
     const sessions = db.prepare(`
         SELECT es.*, t.full_name as teacher_name,
                (SELECT COUNT(*) FROM extracurricular_session_attendance esa WHERE esa.session_id = es.id) as total_attendance,
@@ -935,6 +944,7 @@ app.get('/api/extracurriculars/sessions/:sessionId/attendance', requireAuth, (re
     `).get(sessionId);
 
     if (!session) return res.status(404).json({ success: false, message: 'Sesi tidak ditemukan.' });
+    if (!canManageEkskul(req, session.extracurricular_id)) return res.status(403).json({ success: false, message: 'Akses ditolak: ekskul ini bukan binaan Anda.' });
 
     // Ambil anggota aktif dan status kehadiran di sesi ini
     const members = db.prepare(`
@@ -1012,6 +1022,7 @@ app.post('/api/extracurriculars/sessions/:sessionId/attendance', requireAuth, re
 // Rekapitulasi Kehadiran Ekskul per Anggota
 app.get('/api/extracurriculars/:id/recap', requireAuth, (req, res) => {
     const { id } = req.params;
+    if (!canManageEkskul(req, id)) return res.status(403).json({ success: false, message: 'Akses ditolak: ekskul ini bukan binaan Anda.' });
     const totalSessions = db.prepare('SELECT COUNT(*) as c FROM extracurricular_sessions WHERE extracurricular_id = ?').get(id).c;
 
     const recap = db.prepare(`
