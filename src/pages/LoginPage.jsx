@@ -47,21 +47,22 @@ export default function LoginPage({ onLoginSuccess }) {
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-[#07152f] via-blue-800 to-sky-600 flex items-center justify-center p-4 sm:p-8 font-sans antialiased selection:bg-blue-500 selection:text-white">
+        <div className="min-h-screen bg-[#edf6fc] flex items-center justify-center p-4 sm:p-8 font-sans antialiased relative overflow-hidden selection:bg-sky-200 selection:text-[#14253b]">
 
             {/* Container Utama (Card Split Screen Desktop / Stacked Mobile) */}
-            <div className="w-full max-w-4xl bg-white rounded-[1.75rem] sm:rounded-[2.25rem] shadow-[0_28px_90px_rgba(3,12,30,0.38)] border border-white/20 overflow-hidden grid grid-cols-1 md:grid-cols-2 relative transition-all duration-300">
+            <div className="w-full max-w-5xl bg-white rounded-[1.5rem] sm:rounded-[2rem] shadow-[0_24px_70px_rgba(20,37,59,.14)] border border-white overflow-hidden grid grid-cols-1 md:grid-cols-[.92fr_1.08fr] relative z-10">
 
                 {/* ======================================================== */}
                 {/* SISI KIRI: BRANDING ROYAL BLUE DENGAN BOLA 3D ELEGAN     */}
                 {/* ======================================================== */}
-                <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 p-8 sm:p-12 text-white flex flex-col justify-between relative overflow-hidden min-h-[260px] md:min-h-[540px]">
+                <div className="bg-[#14253b] p-7 sm:p-11 text-white flex flex-col justify-between relative overflow-hidden min-h-[240px] md:min-h-[570px]">
 
                     {/* Abstract 3D Spheres (Persis Referensi Gambar 1 & 2) */}
-                    <div className="absolute -top-16 -left-16 w-52 h-52 rounded-full bg-gradient-to-br from-blue-400/40 via-blue-300/20 to-transparent blur-xs pointer-events-none" />
-                    <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-gradient-to-tl from-indigo-950 via-blue-700 to-blue-500/80 pointer-events-none shadow-2xl shadow-black/50" />
-                    <div className="absolute bottom-12 left-10 w-32 h-32 rounded-full bg-gradient-to-tr from-blue-400/70 via-blue-500/50 to-cyan-300/40 pointer-events-none shadow-[0_15px_35px_rgba(0,0,0,0.25)]" />
-                    <div className="absolute top-1/2 -right-8 w-24 h-24 rounded-full bg-blue-500/40 blur-md pointer-events-none" />
+                    <div className="absolute -top-16 -left-16 w-52 h-52 rounded-full bg-sky-300/10 blur-2xl pointer-events-none" />
+                    <div className="absolute -bottom-20 -right-20 w-72 h-72 rounded-full bg-gradient-to-tl from-[#1c3854] via-[#284c69] to-[#f2a65a]/60 pointer-events-none shadow-2xl shadow-black/20" />
+                    <div className="absolute bottom-12 left-10 w-32 h-32 rounded-full bg-gradient-to-tr from-[#f2a65a]/80 via-[#f7c88b]/40 to-sky-200/30 pointer-events-none shadow-[0_15px_35px_rgba(0,0,0,0.25)]" />
+                    <div className="absolute top-1/2 -right-8 w-24 h-24 rounded-full bg-sky-300/20 blur-xl pointer-events-none" />
+                    <div className="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-sky-300 via-[#f2a65a] to-transparent" />
 
                     {/* Header Brand */}
                     <div className="relative z-10">
@@ -75,28 +76,28 @@ export default function LoginPage({ onLoginSuccess }) {
                             />
                         </div>
 
-                        <span className="text-xs uppercase tracking-[0.2em] font-bold text-blue-200 block mb-1">
+                        <span className="text-xs uppercase tracking-[0.18em] font-bold text-sky-200 block mb-2">
                             Portal Presensi Terpadu
                         </span>
                         <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-white leading-tight">
-                            WELCOME
+                            Selamat datang
                         </h1>
-                        <p className="text-sm font-bold text-blue-100 tracking-wide mt-1.5 flex flex-col">
+                        <p className="text-sm font-semibold text-sky-100 tracking-wide mt-2 flex flex-col">
                             <span>{schoolInfo.school_name || 'NEBULA PRESENCE'}</span>
                             {schoolInfo.school_address && (
-                                <span className="text-xs text-blue-200/90 font-normal mt-1">{schoolInfo.school_address}</span>
+                                <span className="text-xs text-sky-100/75 font-normal mt-1">{schoolInfo.school_address}</span>
                             )}
                         </p>
                     </div>
 
                     {/* Deskripsi Singkat di Layar Desktop */}
                     <div className="relative z-10 hidden md:block pt-6">
-                        <p className="text-sm text-blue-100/90 leading-relaxed max-w-xs">
+                        <p className="text-sm text-slate-200/90 leading-relaxed max-w-xs">
                             Sistem presensi kehadiran siswa & pemantauan kedisiplinan sekolah berbasis cloud terintegrasi.
                         </p>
-                        <div className="mt-4 inline-flex items-center gap-2 bg-black/20 backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
+                        <div className="mt-4 inline-flex items-center gap-2 bg-white/[0.07] backdrop-blur-md px-3.5 py-1.5 rounded-full border border-white/10">
                             <span className={`w-2 h-2 rounded-full ${schoolInfo.isConnected ? 'bg-emerald-400' : 'bg-cyan-400'} animate-pulse`} />
-                            <span className="text-xs font-medium text-blue-100">
+                            <span className="text-xs font-medium text-slate-100">
                                 {schoolInfo.isConnected ? 'Gateway Sinkron Aktif' : 'Portal Presensi Sekolah'}
                             </span>
                         </div>
@@ -106,11 +107,11 @@ export default function LoginPage({ onLoginSuccess }) {
                 {/* ======================================================== */}
                 {/* SISI KANAN: FORMULIR SIGN IN MODERN & BERSIH             */}
                 {/* ======================================================== */}
-                <div className="bg-white p-8 sm:p-12 flex flex-col justify-center text-slate-800">
+                <div className="bg-white p-7 sm:p-12 lg:p-14 flex flex-col justify-center text-slate-800">
 
                     <div className="mb-6">
-                        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
-                            Sign In
+                        <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#14253b]">
+                            Masuk ke akun
                         </h2>
                     </div>
 <form onSubmit={handleSubmit} className="space-y-4">
@@ -126,10 +127,10 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
-                                    placeholder="Masukan ID Anda"
-                                    className="w-full bg-[#F4F6FB] hover:bg-slate-100/90 focus:bg-white border border-slate-200/90 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 rounded-2xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-medium"
+                                    placeholder="Masukkan NISN / NIP / ID Anda"
+                                    className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-medium"
                                 />
-                                <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-blue-600 transition-colors" />
+                                <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-sky-700 transition-colors" />
                             </div>
                         </div>
 
@@ -144,16 +145,16 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={secret}
                                     onChange={(e) => setSecret(e.target.value)}
-                                    placeholder="Masukan Password Anda"
-                                    className="w-full bg-[#F4F6FB] hover:bg-slate-100/90 focus:bg-white border border-slate-200/90 focus:border-blue-600 focus:ring-4 focus:ring-blue-500/10 rounded-2xl pl-11 pr-16 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-mono"
+                                    placeholder="Masukkan kata sandi"
+                                    className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-16 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-mono"
                                 />
-                                <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-blue-600 transition-colors" />
+                                <Lock className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-sky-700 transition-colors" />
                                 <button
                                     type="button"
                                     onClick={() => setShowSecret(!showSecret)}
-                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold tracking-wider text-slate-500 hover:text-blue-600 transition cursor-pointer select-none"
+                                    className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold tracking-wider text-slate-500 hover:text-sky-700 transition cursor-pointer select-none"
                                 >
-                                    {showSecret ? 'HIDE' : 'SHOW'}
+                                    {showSecret ? 'SEMBUNYIKAN' : 'TAMPILKAN'}
                                 </button>
                             </div>
                         </div>
@@ -165,7 +166,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                     type="checkbox"
                                     checked={rememberMe}
                                     onChange={(e) => setRememberMe(e.target.checked)}
-                                    className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                    className="w-4 h-4 rounded border-slate-300 text-sky-600 focus:ring-sky-500 cursor-pointer"
                                 />
                                 <span className="font-medium text-xs sm:text-sm">Ingat Saya</span>
                             </label>
@@ -174,17 +175,17 @@ export default function LoginPage({ onLoginSuccess }) {
                             </span>
                         </div>
 
-                        {/* Tombol Utama Sign In */}
+                        {/* Tombol Utama Masuk ke akun */}
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full mt-2 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 active:scale-[0.99] text-white font-semibold py-3.5 rounded-2xl text-sm transition-all shadow-lg shadow-blue-600/25 flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0"
+                            className="w-full mt-2 bg-[#176b9e] hover:bg-[#125980] active:scale-[0.99] text-white font-semibold py-3.5 rounded-xl text-sm transition-all shadow-md shadow-sky-900/15 flex items-center justify-center gap-2 cursor-pointer hover:-translate-y-0.5 disabled:opacity-50 disabled:translate-y-0"
                         >
                             {loading ? (
                                 <RefreshCw className="w-4 h-4 animate-spin text-white" />
                             ) : (
                                 <>
-                                    <span>Sign In</span>
+                                    <span>Masuk ke akun</span>
                                     <ArrowRight className="w-4 h-4 stroke-[2.5]" />
                                 </>
                             )}
@@ -194,7 +195,7 @@ export default function LoginPage({ onLoginSuccess }) {
                     {/* Footer Card */}
                     <div className="mt-8 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-400 font-medium">
                         <span>Nebula Presence</span>
-                        <span>Developed by Nabastala</span>
+                        <span>Dikembangkan oleh Nabastala</span>
                     </div>
 
                 </div>
