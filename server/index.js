@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 import db from './conf/db.js';
 import { 
     createSession, 
@@ -1878,7 +1879,8 @@ app.post('/api/sync/push-members', (req, res) => {
     }
     const { members = [] } = req.body;
     const defaultPinHash = bcrypt.hashSync('123456', 10);
-    const defaultGuruPass = bcrypt.hashSync('Guru2026!', 10);
+    // Akun guru tanpa kredensial dari aplikasi tidak boleh mendapat sandi default yang diketahui umum.
+    const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
     const upsertStudent = db.prepare(`
         INSERT INTO members (barcode_id, nipd, nisn, full_name, role, division, photo_url, phone_number, parent_pin_hash, status)
