@@ -1434,6 +1434,54 @@ app.get('/api/student/ekskul-attendance/:studentId', requireAuth, (req, res) => 
     });
 });
 
+// Hapus hanya record demo yang memiliki penanda persis dari seed lama; tidak menyentuh data lain.
+app.post('/api/admin/cleanup-demo-data', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const tx = db.transaction(() => {
+        const demoMemberIds = db.prepare(`
+            SELECT id FROM members
+            WHERE nisn IN ('0051234567','0051234568','0051234569','0051234570','0051234571')
+               OR barcode_id IN ('BC-1001','BC-1002','BC-1003','BC-1004','BC-1005')
+        `).all().map((row) => row.id);
+        const membersDeleted = db.prepare(`
+            DELETE FROM members
+            WHERE nisn IN ('0051234567','0051234568','0051234569','0051234570','0051234571')
+               OR barcode_id IN ('BC-1001','BC-1002','BC-1003','BC-1004','BC-1005')
+        `).run().changes;
+        const activitiesDeleted = db.prepare(`
+            DELETE FROM extracurriculars
+            WHERE name IN ('Pramuka Gugus Depan','Robotik & IoT Nabastala','Futsal Klub Sekolah')
+        `).run().changes;
+        const teachersDeleted = db.prepare(`
+            DELETE FROM teachers WHERE username IN ('guru.budi','guru.siti','guru.hendra')
+        `).run().changes;
+        const divisionsDeleted = db.prepare(`
+            DELETE FROM divisions
+            WHERE name IN ('XII RPL 1','XI RPL 1')
+              AND NOT EXISTS (SELECT 1 FROM members WHERE members.division = divisions.name)
+              AND NOT EXISTS (SELECT 1 FROM teachers WHERE teachers.assigned_division = divisions.name)
+              AND NOT EXISTS (SELECT 1 FROM teaching_schedules WHERE teaching_schedules.division = divisions.name)
+        `).run().changes;
+        return { membersDeleted, activitiesDeleted, teachersDeleted, divisionsDeleted, demoMemberIds };
+    });
+    try {
+        const result = tx();
+        logAudit(db, req, 'CLEANUP_DEMO_DATA', 'database', null,
+            `Data demo dihapus: siswa ${result.membersDeleted}, guru ${result.teachersDeleted}, ekskul ${result.activitiesDeleted}, kelas ${result.divisionsDeleted}`);
+        res.json({
+            success: true,
+            message: `Pembersihan selesai. ${result.membersDeleted} siswa, ${result.teachersDeleted} guru, ${result.activitiesDeleted} ekskul, dan ${result.divisionsDeleted} kelas demo dihapus. Data lain tidak disentuh.`,
+            counts: {
+                members: result.membersDeleted,
+                teachers: result.teachersDeleted,
+                extracurriculars: result.activitiesDeleted,
+                divisions: result.divisionsDeleted
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Gagal membersihkan data demo: ' + error.message });
+    }
+});
+
 // Ambil Pengaturan Sekolah & Sync Token untuk Admin
 app.get('/api/admin/settings', requireAuth, requireRole('ADMIN'), (req, res) => {
     const settings = db.prepare('SELECT id, school_name, school_address, academic_year, license_status, sync_secret, last_sync_at FROM school_settings WHERE id = 1').get();

@@ -14,6 +14,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const [copiedToken, setCopiedToken] = useState(false);
     const [copiedUrl, setCopiedUrl] = useState(false);
     const [syncingNow, setSyncingNow] = useState(false);
+    const [cleaningDemo, setCleaningDemo] = useState(false);
     const [generatingToken, setGeneratingToken] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
 
@@ -51,6 +52,26 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
         navigator.clipboard.writeText(gatewayUrl);
         setCopiedUrl(true);
         setTimeout(() => setCopiedUrl(false), 2000);
+    };
+
+    const handleCleanupDemoData = async () => {
+        const confirmed = window.confirm('Hapus hanya data contoh bawaan Portal yang dikenali (siswa BC-1001–BC-1005, guru guru.budi/guru.siti/guru.hendra, dan ekskul contoh)? Data lain tidak disentuh. Pastikan database sudah dicadangkan.');
+        if (!confirmed) return;
+        setCleaningDemo(true);
+        setStatusMessage('');
+        try {
+            const res = await authFetch('/api/admin/cleanup-demo-data', { method: 'POST', headers: { 'Content-Type': 'application/json' } });
+            const data = await res.json();
+            if (data.success) {
+                setStatusMessage(data.message || 'Data contoh berhasil dibersihkan.');
+            } else {
+                alert(data.message || 'Gagal membersihkan data contoh.');
+            }
+        } catch {
+            alert('Gagal menghubungi server untuk membersihkan data contoh.');
+        } finally {
+            setCleaningDemo(false);
+        }
     };
 
     const handleTriggerDirectSync = async () => {
@@ -118,6 +139,14 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     </div>
 
                     <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleCleanupDemoData}
+                            disabled={cleaningDemo}
+                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-rose-200 bg-rose-50 hover:bg-rose-100 text-rose-700 text-xs font-bold transition cursor-pointer disabled:opacity-50"
+                            title="Hapus hanya data contoh bawaan yang dikenali"
+                        >
+                            <span>{cleaningDemo ? 'Membersihkan...' : 'Bersihkan Data Contoh'}</span>
+                        </button>
                         <button
                             onClick={handleTriggerDirectSync}
                             disabled={syncingNow}
