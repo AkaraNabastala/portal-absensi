@@ -32,30 +32,17 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 if (s.setting_key && s.setting_value) settingsMap[s.setting_key] = s.setting_value;
             });
 
-            // Sinkron Admin dari tabel admins desktop jika tersedia
-            try {
-                const adminRow = nebulaDb.prepare('SELECT username, password FROM admins ORDER BY id ASC LIMIT 1').get();
-                if (adminRow && adminRow.username) {
-                    settingsMap['admin_username'] = adminRow.username;
-                    settingsMap['admin_password_hash'] = adminRow.password;
-                }
-            } catch (_) {}
-
             portalDb.prepare(`
-                UPDATE school_settings 
+                UPDATE school_settings
                 SET school_name = COALESCE(?, school_name),
                     school_address = COALESCE(?, school_address),
                     school_logo = COALESCE(?, school_logo),
-                    admin_username = COALESCE(?, admin_username),
-                    admin_password_hash = COALESCE(?, admin_password_hash),
                     last_sync_at = CURRENT_TIMESTAMP
                 WHERE id = 1
             `).run(
                 settingsMap['nama_sekolah'] || null,
                 settingsMap['alamat_sekolah'] || null,
-                settingsMap['logo_sekolah'] || null,
-                settingsMap['admin_username'] || null,
-                settingsMap['admin_password_hash'] || null
+                settingsMap['logo_sekolah'] || null
             );
         } catch (e) {
             console.warn('[NebulaDirectSync] Sync settings warning:', e.message);

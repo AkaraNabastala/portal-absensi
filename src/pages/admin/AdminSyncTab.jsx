@@ -139,7 +139,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         <input
                             type="text"
                             readOnly
-                            value={activeSettings?.sync_secret || 'SEC-NEBULA-SYNC-KEY-2026'}
+                            value={activeSettings?.sync_secret || ''}
                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-3.5 pr-24 font-mono text-xs sm:text-sm font-bold text-slate-800 select-all focus:outline-none"
                         />
                         <button

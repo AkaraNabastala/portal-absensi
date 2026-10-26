@@ -26,3 +26,8 @@ dist-ssr
 *.old
 *.sqlite-wal
 *.sqlite-shm
+
+# Database SQLite lokal berisi data sekolah; jangan unggah ke Git
+/server/database/*.sqlite
+/server/database/*.sqlite-wal
+/server/database/*.sqlite-shm

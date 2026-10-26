@@ -121,9 +121,9 @@ app.post('/api/auth/login', (req, res) => {
     const adminHash = schoolSettings?.admin_password_hash;
 
     const isAdminIdMatch = ['admin', 'administrator', adminUser.toLowerCase()].includes(cleanId.toLowerCase());
-    const isAdminPassMatch = (adminHash && bcrypt.compareSync(cleanSecret, adminHash)) || 
-                             cleanSecret === 'AdminSekolah2026!' || 
-                             cleanSecret === 'admin123';
+    const isAdminPassMatch = Boolean(
+        adminHash && bcrypt.compareSync(cleanSecret, adminHash)
+    );
 
     if (isAdminIdMatch && isAdminPassMatch) {
         const session = createSession(db, {
@@ -149,7 +149,7 @@ app.post('/api/auth/login', (req, res) => {
                     school_address: schoolSettings?.school_address,
                     academic_year: schoolSettings?.academic_year || '2026/2027',
                     license_status: schoolSettings?.license_status || 'ACTIVE',
-                    sync_secret: schoolSettings?.sync_secret || 'SEC-NEBULA-SYNC-KEY-2026',
+                    sync_secret: schoolSettings?.sync_secret || '',
                     last_sync_at: schoolSettings?.last_sync_at
                 } 
             }
@@ -163,10 +163,9 @@ app.post('/api/auth/login', (req, res) => {
         WHERE (username = ? OR nip = ? OR LOWER(username) = LOWER(?)) AND status = 'ACTIVE'
     `).get(cleanId, cleanId, cleanId);
 
-    const isTeacherPassMatch = teacher && (
-        (teacher.password_hash && bcrypt.compareSync(cleanSecret, teacher.password_hash)) ||
-        cleanSecret === 'Guru2026!' ||
-        cleanSecret === 'guru123'
+    const isTeacherPassMatch = Boolean(
+        teacher?.password_hash &&
+        bcrypt.compareSync(cleanSecret, teacher.password_hash)
     );
 
     if (teacher && isTeacherPassMatch) {
@@ -1479,7 +1478,19 @@ app.post('/api/sync/handshake', (req, res) => {
 app.post('/api/admin/trigger-direct-sync', requireAuth, requireRole('ADMIN'), (req, res) => {
     try {
         const result = syncFromNebulaApp(db, true);
-        const updatedSettings = db.prepare('SELECT * FROM school_settings WHERE id = 1').get();
+        const updatedSettings = db.prepare(`
+            SELECT
+                id,
+                school_name,
+                school_address,
+                academic_year,
+                school_logo,
+                license_status,
+                last_sync_at,
+                updated_at
+            FROM school_settings
+            WHERE id = 1
+        `).get();
         res.json({ 
             success: true, 
             message: result.message || 'Sinkronisasi dengan Nebula Presence selesai.',

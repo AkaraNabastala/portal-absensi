@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -25,7 +26,7 @@ db.exec(`
     school_address TEXT DEFAULT 'Jl. Pendidikan Teknologi No. 10, Kampus Terpadu',
     academic_year TEXT DEFAULT '2026/2027',
     school_logo TEXT,
-    sync_secret TEXT DEFAULT 'SEC-NEBULA-SYNC-KEY-2026',
+    sync_secret TEXT,
     license_status TEXT DEFAULT 'ACTIVE',
     license_key TEXT DEFAULT 'LIC-PRO-SCHOOL-2026-STABLE',
     admin_username TEXT DEFAULT 'admin',
@@ -308,20 +309,23 @@ db.exec(`
 // SEEDING DATA AWAL (AMAN, BERSIH, TERSTANDAR)
 // ==========================================
 export function initSeedDatabase() {
-  const currentSettings = db.prepare('SELECT * FROM school_settings WHERE id = 1').get();
-  
-  // 1. Pastikan password admin ter-hash aman jika belum diatur
-  if (!currentSettings?.admin_password_hash) {
-    const adminHash = bcrypt.hashSync('AdminSekolah2026!', 10);
-    db.prepare(`
-      UPDATE school_settings 
-      SET admin_username = 'admin',
-          admin_password_hash = ?,
-          sync_secret = 'SEC-NEBULA-SYNC-KEY-2026'
-      WHERE id = 1
-    `).run(adminHash);
-  }
+  const settingsForSync = db
+    .prepare('SELECT sync_secret FROM school_settings WHERE id = 1')
+    .get();
 
+  if (
+      !settingsForSync?.sync_secret ||
+      settingsForSync.sync_secret === 'SEC-NEBULA-SYNC-KEY-2026'
+  ) {
+      const newSyncSecret = randomBytes(32).toString('hex');
+
+      db.prepare(`
+          UPDATE school_settings
+          SET sync_secret = ?,
+              updated_at = CURRENT_TIMESTAMP
+          WHERE id = 1
+      `).run(newSyncSecret);
+  }
   // 2. Seed Guru Contoh
   const countTeachers = db.prepare('SELECT COUNT(*) as c FROM teachers').get().c;
   if (countTeachers === 0) {
