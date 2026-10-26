@@ -15,6 +15,7 @@ import {
     ShieldCheck
 } from 'lucide-react';
 import AttendanceDonut from '../../components/AttendanceDonut';
+import { authFetch } from '../../utils/api';
 
 export default function AdminOverviewTab({ settings, setActiveTab, schoolInfo }) {
     const [data, setData] = useState(null);
@@ -22,7 +23,7 @@ export default function AdminOverviewTab({ settings, setActiveTab, schoolInfo })
 
     const loadStats = async () => {
         try {
-            const res = await fetch('/api/admin/dashboard-stats');
+            const res = await authFetch('/api/admin/dashboard-stats');
             const json = await res.json();
             if (json.success) {
                 setData(json);
