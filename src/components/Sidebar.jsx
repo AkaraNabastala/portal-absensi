@@ -276,7 +276,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
             <div className="p-3 border-t border-white/10 space-y-2">
                 <button
                     onClick={onLogout}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-600 bg-rose-50 hover:bg-rose-100 transition cursor-pointer"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold text-slate-300 border border-white/10 hover:text-rose-200 hover:bg-rose-400/10 hover:border-rose-300/20 transition cursor-pointer"
                 >
                     <LogOut className="w-4 h-4" />
                     <span>Keluar</span>
