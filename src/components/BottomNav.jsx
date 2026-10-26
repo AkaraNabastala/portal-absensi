@@ -147,17 +147,17 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
                 <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-xs flex flex-col justify-end md:hidden animate-in fade-in duration-200">
                     <div 
                         ref={menuRef}
-                        className="bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto border-t border-slate-200 shadow-2xl p-5 pb-8 space-y-5 animate-in slide-in-from-bottom duration-300"
+                        className="portal-mobile-drawer bg-white rounded-t-3xl max-h-[85vh] overflow-y-auto border-t p-5 pb-8 space-y-5 shadow-[0_-16px_50px_rgba(16,28,48,.16)] animate-in slide-in-from-bottom duration-300"
                     >
                         {/* Header Modal Judul "Lainnya" */}
                         <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                             <div className="flex items-center gap-2.5">
-                                <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                                <div className="portal-drawer-icon w-8 h-8 rounded-xl flex items-center justify-center">
                                     <MoreHorizontal className="w-5 h-5" />
                                 </div>
                                 <div>
                                     <h3 className="font-black text-slate-900 text-sm">Lainnya</h3>
-                                    <p className="text-[11px] text-slate-400">Menu kelas binaan dan menu lainnya</p>
+                                    <p className="portal-drawer-subtitle text-[11px]">Menu kelas binaan dan menu lainnya</p>
                                 </div>
                             </div>
                             <button 
@@ -185,16 +185,10 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
                                                     setActiveTab(m.id);
                                                     setShowMoreMenu(false);
                                                 }}
-                                                className={`w-full flex items-center justify-between p-3 rounded-2xl transition-all text-left cursor-pointer ${
-                                                    isCurrent 
-                                                        ? 'bg-blue-50 border border-blue-200/80 text-blue-700 shadow-xs' 
-                                                        : 'bg-slate-50/80 border border-slate-100 text-slate-700 hover:bg-slate-100'
-                                                }`}
+                                                className={`portal-drawer-item w-full flex items-center justify-between p-3 rounded-2xl border transition-all text-left cursor-pointer ${isCurrent ? 'portal-drawer-item-active shadow-sm' : 'hover:bg-sky-50'}`}
                                             >
                                                 <div className="flex items-center gap-3 min-w-0">
-                                                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                                                        isCurrent ? 'bg-blue-600 text-white' : 'bg-white border border-slate-200 text-slate-600'
-                                                    }`}>
+                                                    <div className={`portal-drawer-item-icon w-9 h-9 rounded-xl flex items-center justify-center shrink-0 border ${isCurrent ? '' : ''}`}>
                                                         <Icon className="w-4 h-4" />
                                                     </div>
                                                     <div className="min-w-0">
@@ -222,7 +216,7 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
                 <div className="relative flex justify-around items-center max-w-md mx-auto">
                     {/* Active Indicator Backdrop */}
                     <div
-                        className="absolute top-0 bottom-0 rounded-xl bg-gradient-to-br from-blue-600/25 to-sky-400/10 border border-sky-300/20 transition-all duration-300 ease-out pointer-events-none"
+                        className="portal-nav-active absolute top-0 bottom-0 rounded-xl border transition-all duration-300 ease-out pointer-events-none"
                         style={{
                             width: `${100 / items.length}%`,
                             left: `${(activeIndex >= 0 ? activeIndex : 0) * (100 / items.length)}%`
@@ -241,12 +235,12 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
                                 onClick={() => handleItemClick(item)}
                                 className={`flex-1 py-1.5 flex flex-col items-center justify-center relative z-10 transition-all cursor-pointer ${
                                     isActive 
-                                        ? 'text-sky-300 font-bold scale-105' 
-                                        : 'text-slate-400 hover:text-white'
+                                        ? 'portal-nav-item-active font-bold scale-105' 
+                                        : 'portal-nav-item hover:text-slate-900'
                                 }`}
                             >
-                                <Icon className={`w-5 h-5 mb-0.5 transition-transform ${isActive ? 'stroke-[2.5] text-sky-300' : 'stroke-1.5'}`} />
-                                <span className="text-[11px] font-semibold tracking-tight">{item.label}</span>
+                                <Icon className={`w-5 h-5 mb-0.5 transition-transform ${isActive ? 'stroke-[2.5]' : 'stroke-1.5'}`} />
+                                <span className={`text-[11px] font-semibold tracking-tight ${isActive ? 'portal-nav-item-active' : 'portal-nav-item'}`}>{item.label}</span>
                             </button>
                         );
                     })}
