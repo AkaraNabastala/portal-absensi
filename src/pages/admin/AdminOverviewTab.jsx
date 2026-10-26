@@ -66,43 +66,40 @@ export default function AdminOverviewTab({ settings, setActiveTab, schoolInfo })
 
     return (
         <div className="space-y-6">
-            {/* 1. HERO BANNER: BRANDING RESMI SEKOLAH & STATUS SINKRONISASI */}
-            <div className="bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-900 rounded-[2rem] p-6 sm:p-8 text-white shadow-lg shadow-blue-900/10 relative overflow-hidden">
-                {/* Aksen Bola Gradasi Halus */}
-                <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-white/10 blur-2xl pointer-events-none" />
-                <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full bg-blue-400/20 blur-xl pointer-events-none" />
-
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-5 relative z-10">
-                    <div>
-                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/15 backdrop-blur-md text-xs font-bold text-blue-100 mb-2">
-                            <Sparkles className="w-3.5 h-3.5 text-blue-200" />
-                            <span>Pusat Kendali Presensi Sekolah</span>
+            {/* HERO: identitas sekolah dan status sinkronisasi yang tidak mengklaim koneksi palsu */}
+            <section className="relative isolate overflow-hidden rounded-[2rem] border border-sky-200/80 bg-gradient-to-br from-sky-100 via-white to-orange-50 p-5 shadow-[0_18px_55px_rgba(28,100,160,0.10)] sm:p-7">
+                <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-sky-300 via-blue-600 to-orange-400" />
+                <div className="pointer-events-none absolute -right-10 -top-12 h-48 w-48 rounded-full bg-sky-300/35 blur-3xl" />
+                <div className="pointer-events-none absolute -bottom-16 right-1/3 h-36 w-36 rounded-full bg-orange-200/45 blur-3xl" />
+                <div className="relative grid gap-5 lg:grid-cols-[minmax(0,1fr)_280px] lg:items-center">
+                    <div className="flex items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-950 via-blue-700 to-sky-400 text-white shadow-lg shadow-blue-900/15">
+                            <GraduationCap className="h-7 w-7" />
                         </div>
-                        <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
-                            {schoolInfo?.school_name || 'NEBULA PRESENCE'}
-                        </h2>
-                        <p className="text-xs sm:text-sm text-blue-100/90 mt-1 max-w-xl leading-relaxed">
-                            {schoolInfo?.school_address || 'Pemantauan presensi terpadu guru, siswa, kelas, dan kegiatan ekstrakurikuler.'}
-                        </p>
+                        <div className="min-w-0">
+                            <div className="inline-flex items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-blue-800">
+                                <Sparkles className="h-3.5 w-3.5 text-orange-500" />
+                                Pusat kendali presensi
+                            </div>
+                            <h2 className="mt-3 break-words text-2xl font-black tracking-tight text-slate-950 sm:text-3xl">
+                                {schoolInfo?.school_name || 'NEBULA PRESENCE'}
+                            </h2>
+                            <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-600 sm:text-sm">
+                                {schoolInfo?.school_address || 'Pantau kehadiran, aktivitas kelas, dan kegiatan sekolah dari satu ruang kerja.'}
+                            </p>
+                        </div>
                     </div>
-
-                    {/* Badge Status Gateway Mesin */}
-                    <div className="bg-black/25 backdrop-blur-md px-4 py-3 rounded-2xl border border-white/15 text-left md:text-right shrink-0">
-                        <span className="text-[11px] uppercase font-bold tracking-wider text-blue-200 block">
-                            Status Gateway Mesin
-                        </span>
-                        <div className="flex items-center gap-2 mt-1">
-                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
-                            <span className="text-xs font-bold font-mono text-emerald-300">
-                                Cloud Sync Siap
-                            </span>
+                    <div className="rounded-2xl border border-blue-950/10 bg-[#101c30] p-4 text-white shadow-xl shadow-blue-950/15">
+                        <div className="flex items-center justify-between gap-3">
+                            <span className="text-[10px] font-extrabold uppercase tracking-[0.15em] text-sky-200">Koneksi Portal</span>
+                            <span className={`h-2.5 w-2.5 rounded-full ${settings?.last_sync_at ? 'bg-emerald-400' : 'bg-orange-400'}`} />
                         </div>
-                        <span className="text-[10px] text-blue-200/70 font-mono block mt-1">
-                            Tersinkron: {settings?.last_sync_at ? String(settings.last_sync_at).substring(11, 16) : 'Hari ini'}
-                        </span>
+                        <p className="mt-2 text-base font-extrabold">{settings?.last_sync_at ? 'Pernah menerima sinkronisasi' : 'Belum ada sinkronisasi tercatat'}</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-slate-300">{settings?.last_sync_at ? `Pembaruan terakhir ${String(settings.last_sync_at).substring(0, 16)}` : 'Status akan diperbarui setelah data pertama berhasil diterima dari Nebula Presence.'}</p>
+                        <div className="mt-4 flex items-center gap-2 border-t border-white/10 pt-3 text-[10px] font-semibold text-sky-200"><Activity size={13} /> Status berdasarkan catatan terakhir, bukan indikator palsu</div>
                     </div>
                 </div>
-            </div>
+            </section>
 
             {/* 2. STATS OVERVIEW CARDS (4 KARTU METRIK UTAMA) */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
