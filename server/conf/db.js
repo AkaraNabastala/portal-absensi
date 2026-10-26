@@ -337,6 +337,15 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_logs (created_at);
 `);
 
+// Token sekali pakai untuk mengamankan setup admin pertama.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS portal_bootstrap (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    token_hash TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+`);
+
 // ==========================================
 // SEEDING DATA AWAL (AMAN, BERSIH, TERSTANDAR)
 // ==========================================
