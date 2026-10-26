@@ -35,6 +35,11 @@ export default function AdminSchedulesTab() {
     const [startTime, setStartTime] = useState('07:30');
     const [endTime, setEndTime] = useState('09:30');
     const [room, setRoom] = useState('Ruang Kelas');
+    const [credentialTeacherId, setCredentialTeacherId] = useState('');
+    const [credentialUsername, setCredentialUsername] = useState('');
+    const [credentialPassword, setCredentialPassword] = useState('');
+    const [credentialMessage, setCredentialMessage] = useState('');
+    const [credentialBusy, setCredentialBusy] = useState(false);
 
     const loadData = async () => {
         try {
@@ -48,6 +53,10 @@ export default function AdminSchedulesTab() {
             if (resSchedules.success) setSchedules(resSchedules.data || []);
             if (resTeachers.success) {
                 setTeachers(resTeachers.data || []);
+                if (resTeachers.data?.length > 0 && !credentialTeacherId) {
+                    setCredentialTeacherId(String(resTeachers.data[0].id));
+                    setCredentialUsername(resTeachers.data[0].username || '');
+                }
                 if (resTeachers.data?.length > 0 && !teacherId) {
                     setTeacherId(resTeachers.data[0].id);
                 }
@@ -68,6 +77,32 @@ export default function AdminSchedulesTab() {
     useEffect(() => {
         loadData();
     }, []);
+
+    const handleSaveCredentials = async (e) => {
+        e.preventDefault();
+        if (!credentialTeacherId || !credentialUsername.trim()) {
+            setCredentialMessage('Pilih guru dan isi username.');
+            return;
+        }
+        setCredentialBusy(true);
+        setCredentialMessage('');
+        try {
+            const res = await authFetch(`/api/admin/teachers/${credentialTeacherId}/credentials`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ username: credentialUsername.trim(), password: credentialPassword })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || 'Gagal menyimpan akun.');
+            setCredentialMessage(data.message || 'Akun berhasil diperbarui.');
+            setCredentialPassword('');
+            await loadData();
+        } catch (error) {
+            setCredentialMessage(error.message || 'Gagal menyimpan akun.');
+        } finally {
+            setCredentialBusy(false);
+        }
+    };
 
     const handleCreate = async (e) => {
         e.preventDefault();
@@ -163,6 +198,26 @@ export default function AdminSchedulesTab() {
                     <span>Tambah Jadwal Mapel</span>
                 </button>
             </div>
+
+            <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-xs">
+                <h3 className="font-bold text-slate-900">Akun Login Guru</h3>
+                <p className="mt-1 text-xs text-slate-500">Atur username dan password yang digunakan guru untuk masuk ke Portal.</p>
+                {credentialMessage && <div role="status" className="mt-3 rounded-xl bg-blue-50 px-3 py-2 text-sm text-blue-800">{credentialMessage}</div>}
+                <form onSubmit={handleSaveCredentials} className="mt-4 grid gap-3 md:grid-cols-3">
+                    <label className="text-xs font-semibold text-slate-600">Guru
+                        <select value={credentialTeacherId} onChange={e => { const id=e.target.value; setCredentialTeacherId(id); setCredentialUsername(teachers.find(t => String(t.id) === id)?.username || ''); }} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm">
+                            {teachers.map(t => <option key={t.id} value={t.id}>{t.full_name}</option>)}
+                        </select>
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">Username
+                        <input required minLength={3} maxLength={80} value={credentialUsername} onChange={e => setCredentialUsername(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="username.guru" />
+                    </label>
+                    <label className="text-xs font-semibold text-slate-600">Password Baru
+                        <input type="password" minLength={8} maxLength={200} value={credentialPassword} onChange={e => setCredentialPassword(e.target.value)} className="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2 text-sm" placeholder="Kosongkan untuk mempertahankan password" />
+                    </label>
+                    <div className="md:col-span-3"><button disabled={credentialBusy || !credentialTeacherId} className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">{credentialBusy ? 'Menyimpan…' : 'Simpan Akun Guru'}</button></div>
+                </form>
+            </section>
 
             {/* Filter Section */}
             <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-xs flex flex-wrap items-center gap-3">
