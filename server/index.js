@@ -20,6 +20,19 @@ import { syncFromNebulaApp, writeApprovedLeaveToNebulaApp } from './conf/nebulaS
 
 dotenv.config();
 
+// Generate a one-time setup key only for a fresh portal without admin credentials.
+// The key is shown only in server logs and stored as a bcrypt hash.
+const ensurePortalBootstrapKey = () => {
+    const settings = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
+    if (settings?.admin_password_hash) return;
+    const existing = db.prepare('SELECT id FROM portal_bootstrap WHERE id = 1').get();
+    if (existing) return;
+    const setupKey = randomBytes(32).toString('hex');
+    db.prepare('INSERT INTO portal_bootstrap (id, token_hash) VALUES (1, ?)').run(bcrypt.hashSync(setupKey, 12));
+    console.warn('[PORTAL FIRST RUN] One-time admin setup key (keep private):', setupKey);
+};
+ensurePortalBootstrapKey();
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const distPath = path.resolve(__dirname, '../dist');
@@ -130,22 +143,27 @@ app.get('/api/portal/info', (req, res) => {
 // First-run bootstrap: buat satu akun admin jika database masih belum memiliki kredensial admin.
 app.get('/api/auth/bootstrap-status', (req, res) => {
     const settings = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
-    res.json({ success: true, setupRequired: !settings?.admin_password_hash });
+    res.json({ success: true, setupRequired: !settings?.admin_password_hash, setupKeyRequired: !settings?.admin_password_hash });
 });
 
 app.post('/api/auth/bootstrap-admin', (req, res) => {
     const username = String(req.body?.username || '').trim();
     const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const setupKey = String(req.body?.setupKey || '').trim();
     if (username.length < 3 || username.length > 80) {
         return res.status(400).json({ success: false, message: 'Username admin harus berisi 3–80 karakter.' });
     }
     if (password.length < 12 || password.length > 200) {
         return res.status(400).json({ success: false, message: 'Kata sandi admin minimal 12 karakter.' });
     }
+    if (!setupKey) {
+        return res.status(400).json({ success: false, message: 'Kunci setup awal wajib diisi.' });
+    }
 
     const createInitialAdmin = db.transaction(() => {
         const current = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
-        if (current?.admin_password_hash) return false;
+        const bootstrap = db.prepare('SELECT token_hash FROM portal_bootstrap WHERE id = 1').get();
+        if (current?.admin_password_hash || !bootstrap || !bcrypt.compareSync(setupKey, bootstrap.token_hash)) return false;
         const passwordHash = bcrypt.hashSync(password, 12);
         db.prepare(`
             UPDATE school_settings
@@ -153,13 +171,14 @@ app.post('/api/auth/bootstrap-admin', (req, res) => {
                 updated_at = CURRENT_TIMESTAMP
             WHERE id = 1
         `).run(username, passwordHash);
+        db.prepare('DELETE FROM portal_bootstrap WHERE id = 1').run();
         return true;
     });
 
     try {
         const created = createInitialAdmin();
         if (!created) {
-            return res.status(409).json({ success: false, message: 'Akun admin sudah disiapkan. Silakan masuk.' });
+            return res.status(403).json({ success: false, message: 'Kunci setup tidak valid atau akun admin sudah disiapkan.' });
         }
         logAudit(db, { user: { role: 'SYSTEM', userId: 1 }, ip: req.ip }, 'BOOTSTRAP_ADMIN', 'school_settings', 1, 'Akun admin awal dibuat');
         return res.json({ success: true, message: 'Akun admin awal berhasil dibuat. Silakan masuk.' });
