@@ -1793,6 +1793,8 @@ app.post('/api/sync/push-members', (req, res) => {
 
     const nonClass = ['Guru', 'Tendik', 'Staff', 'Pegawai', 'Umum', 'Karyawan', 'Semua'];
 
+    const syncedIds = [];
+    let skipped = 0;
     const tx = db.transaction(() => {
         for (const m of members) {
             const role = String(m.role || '').toLowerCase();
@@ -1814,26 +1816,35 @@ app.post('/api/sync/push-members', (req, res) => {
                     m.phone_number || null,
                     m.photo || null
                 );
+                syncedIds.push(m.id);
+            } else if (m.nisn) {
+                upsertStudent.run(
+                    m.rfid_code || m.barcode_id || `BC-${m.id}`,
+                    m.nipd || null,
+                    m.nisn,
+                    m.full_name,
+                    'siswa',
+                    div,
+                    m.photo || null,
+                    m.phone_number || null,
+                    defaultPinHash
+                );
+                syncedIds.push(m.id);
             } else {
-                if (m.nisn) {
-                    upsertStudent.run(
-                        m.rfid_code || m.barcode_id || `BC-${m.id}`,
-                        m.nipd || null,
-                        m.nisn,
-                        m.full_name,
-                        'siswa',
-                        div,
-                        m.photo || null,
-                        m.phone_number || null,
-                        defaultPinHash
-                    );
-                }
+                skipped++;
             }
         }
     });
-
     tx();
-    res.json({ success: true, message: `${members.length} data anggota tersinkronkan.` });
+    res.json({
+        success: skipped === 0,
+        synced: syncedIds.length,
+        skipped,
+        synced_ids: syncedIds,
+        message: skipped === 0
+            ? `${syncedIds.length} data anggota tersinkronkan.`
+            : `${syncedIds.length} data anggota tersinkronkan; ${skipped} dilewati karena identitas siswa tidak lengkap.`
+    });
 });
 
 // 4. Terima Log Presensi Harian dari Mesin RFID Desktop
