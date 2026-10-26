@@ -36,26 +36,25 @@ button { touch-action: manipulation; }
 
 /* Sky / Nabastala visual language: midnight navigation, open sky canvas, warm sunset accents. */
 .portal-topbar {
-  color: var(--ink);
-  background: linear-gradient(105deg, #ffffff 0%, #f5fbff 62%, #e9f6ff 100%);
-  border-bottom: 1px solid var(--line);
-  box-shadow: 0 5px 22px rgba(23, 41, 67, .045);
+  color: #f8fbff;
+  background: linear-gradient(112deg, #101c30 0%, #172943 58%, #174a70 100%);
+  border-bottom: 1px solid rgba(88,184,242,.42);
+  box-shadow: 0 12px 34px rgba(16,28,48,.18);
 }
-.portal-topbar .portal-brand-eyebrow { color: #54738f; }
-.portal-topbar .portal-page-title { color: var(--navy-950); }
-.portal-topbar .portal-user-chip { background: rgba(255,255,255,.78); border-color: #dce9f5; }
-.portal-topbar .portal-user-name { color: var(--navy-950); }
-.portal-topbar .portal-user-role { color: #58748f; }
-.portal-topbar .portal-user-icon { color: #176b9e; background: #dff2ff; }
-.portal-topbar .portal-logout { color: #344a62; background: #fff; border-color: #dce8f3; }
-.portal-topbar .portal-logout:hover { color: #a43e3e; background: #fff4f1; border-color: #f4d1c7; }
+.portal-topbar .portal-brand-eyebrow { color: #9edcff; }
+.portal-topbar .portal-page-title { color: #ffffff; }
+.portal-topbar .portal-user-chip { background: rgba(255,255,255,.08); border-color: rgba(191,219,254,.22); }
+.portal-topbar .portal-user-name { color: #ffffff; }
+.portal-topbar .portal-user-role { color: #b9cfe2; }
+.portal-topbar .portal-user-icon { color: #dff5ff; background: rgba(56,189,248,.18); }
+.portal-topbar .portal-logout { color: #e2edf8; background: rgba(255,255,255,.08); border-color: rgba(191,219,254,.2); }
+.portal-topbar .portal-logout:hover { color: #fecaca; background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.35); }
 .portal-bottom-nav {
   color: var(--ink);
   background: rgba(255,255,255,.96);
   border: 1px solid #dbe8f4;
-  border-bottom: 0;
-  border-radius: 1.15rem 1.15rem 0 0;
-  box-shadow: 0 -8px 28px rgba(21, 52, 81, .10);
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 34px rgba(21, 52, 81, .16);
   backdrop-filter: blur(18px);
 }
 .portal-bottom-nav .portal-nav-active { background: #e5f4ff; border-color: #c7e7fb; }
