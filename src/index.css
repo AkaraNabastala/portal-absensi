@@ -4,7 +4,7 @@ html, body {
   margin: 0;
   padding: 0;
   font-family: 'Poppins', sans-serif;
-  background-color: #F8FAFC;
+  background-color: #f3f7ff;
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
   min-height: 100dvh;
@@ -13,3 +13,12 @@ html, body {
 .safe-area-bottom {
   padding-bottom: max(0.6rem, env(safe-area-inset-bottom, 0.6rem));
 }
+
+:root { --portal-navy: #0b1730; --portal-blue: #1d4ed8; --portal-sky: #38bdf8; --portal-orange: #f59e0b; }
+.portal-topbar { background: linear-gradient(112deg, #08152e 0%, #102b58 62%, #12427a 100%); }
+.portal-bottom-nav { background: rgba(8, 21, 46, .97); border: 1px solid rgba(125, 211, 252, .15); border-bottom: 0; border-radius: 1.25rem 1.25rem 0 0; box-shadow: 0 -12px 35px rgba(8, 21, 46, .2); backdrop-filter: blur(22px); }
+.custom-scrollbar::-webkit-scrollbar { width: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, .45); border-radius: 999px; }
+button, a { -webkit-tap-highlight-color: transparent; }
+::selection { background: rgba(56, 189, 248, .24); }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
