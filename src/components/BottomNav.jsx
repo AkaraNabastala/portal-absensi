@@ -218,11 +218,11 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
             )}
 
             {/* BOTTOM NAV BAR UTAMA */}
-            <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 border-t border-slate-200/90 backdrop-blur-xl px-2 py-1.5 shadow-[0_-4px_25px_rgba(0,0,0,0.08)] safe-area-bottom transform-gpu">
+            <nav className="portal-bottom-nav md:hidden fixed bottom-0 inset-x-0 z-40 px-2 pt-2 pb-1.5 safe-area-bottom transform-gpu">
                 <div className="relative flex justify-around items-center max-w-md mx-auto">
                     {/* Active Indicator Backdrop */}
                     <div
-                        className="absolute top-0 bottom-0 rounded-2xl bg-blue-50 border border-blue-200/60 transition-all duration-300 ease-out pointer-events-none"
+                        className="absolute top-0 bottom-0 rounded-xl bg-gradient-to-br from-blue-600/25 to-sky-400/10 border border-sky-300/20 transition-all duration-300 ease-out pointer-events-none"
                         style={{
                             width: `${100 / items.length}%`,
                             left: `${(activeIndex >= 0 ? activeIndex : 0) * (100 / items.length)}%`
@@ -241,11 +241,11 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
                                 onClick={() => handleItemClick(item)}
                                 className={`flex-1 py-1.5 flex flex-col items-center justify-center relative z-10 transition-all cursor-pointer ${
                                     isActive 
-                                        ? 'text-blue-600 font-bold scale-105' 
-                                        : 'text-slate-400 hover:text-slate-700'
+                                        ? 'text-sky-300 font-bold scale-105' 
+                                        : 'text-slate-400 hover:text-white'
                                 }`}
                             >
-                                <Icon className={`w-5 h-5 mb-0.5 transition-transform ${isActive ? 'stroke-[2.5] text-blue-600' : 'stroke-1.5'}`} />
+                                <Icon className={`w-5 h-5 mb-0.5 transition-transform ${isActive ? 'stroke-[2.5] text-sky-300' : 'stroke-1.5'}`} />
                                 <span className="text-[11px] font-semibold tracking-tight">{item.label}</span>
                             </button>
                         );
