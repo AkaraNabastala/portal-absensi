@@ -84,7 +84,10 @@ const canAccessDivision = (req, division) => {
 const canCoverSchedule = (req, schedule, date) => {
     if (req.user?.role === 'ADMIN') return true;
     if (req.user?.role !== 'TEACHER' || !schedule || !date) return false;
-    if (Number(schedule.teacher_id) === Number(req.user.userId)) return true;
+    if (Number(schedule.teacher_id) === Number(req.user.userId)) {
+        const approvedLeave = db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE teacher_id = ? AND status = 'DISETUJUI' AND start_date <= ? AND end_date >= ? LIMIT 1`).get(req.user.userId, date, date);
+        return !approvedLeave;
+    }
     return Boolean(db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE teacher_id = ? AND substitute_teacher_id = ? AND status = 'DISETUJUI' AND start_date <= ? AND end_date >= ? LIMIT 1`).get(schedule.teacher_id, req.user.userId, date, date));
 };
 const canManageEkskul = (req, extracurricularId) => {
@@ -97,7 +100,7 @@ const canManageEkskul = (req, extracurricularId) => {
 const canTeachDivision = (req, division, date = new Date().toISOString().split('T')[0]) => {
     if (canAccessDivision(req, division)) return true;
     if (req.user?.role !== 'TEACHER' || !division) return false;
-    return Boolean(db.prepare(`SELECT 1 FROM teaching_schedules s WHERE s.division = ? AND s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?)) LIMIT 1`).get(division, req.user.userId, req.user.userId, date, date));
+    return Boolean(db.prepare(`SELECT 1 FROM teaching_schedules s WHERE s.division = ? AND s.is_active = 1 AND ((s.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM teacher_absence_requests own_ar WHERE own_ar.teacher_id = s.teacher_id AND own_ar.status = 'DISETUJUI' AND own_ar.start_date <= ? AND own_ar.end_date >= ?)) OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?)) LIMIT 1`).get(division, req.user.userId, req.user.userId, date, date));
 };
 
 // ==========================================
@@ -325,7 +328,7 @@ app.get('/api/teacher/schedules', requireAuth, requireRole('TEACHER', 'ADMIN'), 
         SELECT s.*, t.full_name as teacher_name
         FROM teaching_schedules s
         JOIN teachers t ON s.teacher_id = t.id
-        WHERE s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= date('now','localtime') AND ar.end_date >= date('now','localtime')))
+        WHERE s.is_active = 1 AND ((s.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM teacher_absence_requests own_ar WHERE own_ar.teacher_id = s.teacher_id AND own_ar.status = 'DISETUJUI' AND own_ar.start_date <= date('now','localtime') AND own_ar.end_date >= date('now','localtime'))) OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= date('now','localtime') AND ar.end_date >= date('now','localtime')))
         ORDER BY 
             CASE s.day_name 
                 WHEN 'Senin' THEN 1 
@@ -359,7 +362,7 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
         LEFT JOIN teacher_journals j ON j.schedule_id = s.id AND j.date = ?
         WHERE s.day_name = ? AND s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?))
         ORDER BY s.start_time ASC
-    `).all(targetDate, dayName, teacherId, teacherId, targetDate, targetDate);
+    `).all(targetDate, dayName, teacherId, targetDate, targetDate, teacherId, targetDate, targetDate);
 
     res.json({ 
         success: true, 
