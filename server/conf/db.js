@@ -22,8 +22,8 @@ db.pragma('foreign_keys = ON');
 db.exec(`
   CREATE TABLE IF NOT EXISTS school_settings (
     id INTEGER PRIMARY KEY CHECK (id = 1),
-    school_name TEXT DEFAULT 'SMK Negeri 1 Presensi Cerdas',
-    school_address TEXT DEFAULT 'Jl. Pendidikan Teknologi No. 10, Kampus Terpadu',
+    school_name TEXT DEFAULT 'NEBULA PRESENCE',
+    school_address TEXT DEFAULT '',
     academic_year TEXT DEFAULT '2026/2027',
     school_logo TEXT,
     sync_secret TEXT,
@@ -350,6 +350,20 @@ db.exec(`
 // SEEDING DATA AWAL (AMAN, BERSIH, TERSTANDAR)
 // ==========================================
 export function initSeedDatabase() {
+  const initialSettings = db
+    .prepare('SELECT school_name, school_address, admin_password_hash, last_sync_at FROM school_settings WHERE id = 1')
+    .get();
+
+  // Hilangkan identitas contoh hanya pada portal baru yang belum pernah disinkronkan.
+  if (!initialSettings?.admin_password_hash && !initialSettings?.last_sync_at) {
+    if (initialSettings?.school_name === 'SMK Negeri 1 Presensi Cerdas') {
+      db.prepare("UPDATE school_settings SET school_name = 'NEBULA PRESENCE' WHERE id = 1").run();
+    }
+    if (initialSettings?.school_address === 'Jl. Pendidikan Teknologi No. 10, Kampus Terpadu') {
+      db.prepare("UPDATE school_settings SET school_address = '' WHERE id = 1").run();
+    }
+  }
+
   const settingsForSync = db
     .prepare('SELECT sync_secret FROM school_settings WHERE id = 1')
     .get();
