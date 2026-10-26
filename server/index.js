@@ -340,7 +340,7 @@ app.get('/api/teacher/schedules', requireAuth, requireRole('TEACHER', 'ADMIN'), 
     const teacherId = req.user.role === 'ADMIN' && req.query.teacherId ? req.query.teacherId : req.user.userId;
 
     const schedules = db.prepare(`
-        SELECT s.*, t.full_name as teacher_name
+        SELECT s.*, CASE WHEN s.teacher_id = ? THEN t.full_name ELSE (SELECT full_name FROM teachers WHERE id = ?) END as teacher_name
         FROM teaching_schedules s
         JOIN teachers t ON s.teacher_id = t.id
         WHERE s.is_active = 1 AND ((s.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM teacher_absence_requests own_ar WHERE own_ar.teacher_id = s.teacher_id AND own_ar.status = 'DISETUJUI' AND own_ar.start_date <= date('now','localtime') AND own_ar.end_date >= date('now','localtime'))) OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= date('now','localtime') AND ar.end_date >= date('now','localtime')))
@@ -355,7 +355,7 @@ app.get('/api/teacher/schedules', requireAuth, requireRole('TEACHER', 'ADMIN'), 
                 ELSE 7 
             END,
             s.start_time ASC
-    `).all(teacherId, teacherId);
+    `).all(teacherId, teacherId, teacherId, teacherId);
 
     res.json({ success: true, data: schedules });
 });
@@ -368,7 +368,7 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
 
     // Ambil jadwal di hari tersebut beserta status jurnalnya jika sudah dibuat
     const schedules = db.prepare(`
-        SELECT s.*, t.full_name as teacher_name,
+        SELECT s.*, CASE WHEN s.teacher_id = ? THEN t.full_name ELSE (SELECT full_name FROM teachers WHERE id = ?) END as teacher_name,
                j.id as journal_id, j.status as journal_status, j.topic as journal_topic,
                j.actual_start_time, j.actual_end_time,
                (SELECT COUNT(*) FROM teacher_journal_attendance ja WHERE ja.journal_id = j.id) as total_attendance_recorded
@@ -377,7 +377,7 @@ app.get('/api/teacher/today-schedules', requireAuth, requireRole('TEACHER', 'ADM
         LEFT JOIN teacher_journals j ON j.schedule_id = s.id AND j.date = ?
         WHERE s.day_name = ? AND s.is_active = 1 AND (s.teacher_id = ? OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?))
         ORDER BY s.start_time ASC
-    `).all(targetDate, dayName, teacherId, targetDate, targetDate, teacherId, targetDate, targetDate);
+    `).all(teacherId, teacherId, targetDate, dayName, teacherId, targetDate, targetDate, teacherId, targetDate, targetDate);
 
     res.json({ 
         success: true, 
