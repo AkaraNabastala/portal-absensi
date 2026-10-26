@@ -84,6 +84,7 @@ const canAccessDivision = (req, division) => {
 const canCoverSchedule = (req, schedule, date) => {
     if (req.user?.role === 'ADMIN') return true;
     if (req.user?.role !== 'TEACHER' || !schedule || !date) return false;
+    if (String(schedule.day_name || '') !== getIndonesianDayName(date)) return false;
     if (Number(schedule.teacher_id) === Number(req.user.userId)) {
         const approvedLeave = db.prepare(`SELECT 1 FROM teacher_absence_requests WHERE teacher_id = ? AND status = 'DISETUJUI' AND start_date <= ? AND end_date >= ? LIMIT 1`).get(req.user.userId, date, date);
         return !approvedLeave;
