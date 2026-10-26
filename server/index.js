@@ -577,7 +577,8 @@ app.post('/api/teacher/journal', requireAuth, requireRole('TEACHER', 'ADMIN'), (
             journalId = journal.id;
             db.prepare(`
                 UPDATE teacher_journals 
-                SET topic = ?,
+                SET teacher_id = ?,
+                    topic = ?,
                     activities = ?,
                     assignments = ?,
                     notes = ?,
@@ -587,6 +588,7 @@ app.post('/api/teacher/journal', requireAuth, requireRole('TEACHER', 'ADMIN'), (
                     updated_at = CURRENT_TIMESTAMP
                 WHERE id = ?
             `).run(
+                req.user.role === 'TEACHER' ? req.user.userId : schedule.teacher_id,
                 topic.trim(),
                 activities || '',
                 assignments || '',
@@ -604,7 +606,7 @@ app.post('/api/teacher/journal', requireAuth, requireRole('TEACHER', 'ADMIN'), (
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             `).run(
                 schedule.id,
-                schedule.teacher_id,
+                req.user.role === 'TEACHER' ? req.user.userId : schedule.teacher_id,
                 date,
                 schedule.division,
                 schedule.subject_name,
