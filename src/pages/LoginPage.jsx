@@ -7,6 +7,7 @@ export default function LoginPage({ onLoginSuccess }) {
     const [identifier, setIdentifier] = useState('');
     const [secret, setSecret] = useState('');
     const [confirmSecret, setConfirmSecret] = useState('');
+    const [setupKey, setSetupKey] = useState('');
     const [setupRequired, setSetupRequired] = useState(false);
     const [showSecret, setShowSecret] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);    const [loading, setLoading] = useState(false);
@@ -59,7 +60,7 @@ export default function LoginPage({ onLoginSuccess }) {
                 const res = await fetch('/api/auth/bootstrap-admin', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username: identifier, password: secret })
+                    body: JSON.stringify({ username: identifier, password: secret, setupKey })
                 });
                 const data = await res.json();
                 if (data.success) {
@@ -164,6 +165,23 @@ export default function LoginPage({ onLoginSuccess }) {
                     </div>
 <form onSubmit={handleSubmit} className="space-y-4">
 
+                        {setupRequired && (
+                            <div>
+                                <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">Kunci Setup Awal</label>
+                                <div className="relative group">
+                                    <input
+                                        type="password"
+                                        required
+                                        value={setupKey}
+                                        onChange={(e) => setSetupKey(e.target.value)}
+                                        placeholder="Masukkan kunci dari log server"
+                                        className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-mono"
+                                    />
+                                    <ShieldCheck className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                </div>
+                            </div>
+                        )}
+
                         {/* Input 1: NISN / NIP */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
@@ -229,7 +247,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
                         {setupRequired ? (
                             <div className="rounded-xl border border-sky-100 bg-sky-50/80 px-3 py-2.5 text-xs leading-relaxed text-sky-900">
-                                Buat akun admin awal. Gunakan kata sandi unik minimal 12 karakter; setelah sinkronisasi pertama, akun admin akan mengikuti kredensial dari Nebula Presence.
+                                Kunci setup satu kali tersedia di log server. Buat kata sandi unik minimal 12 karakter; setelah sinkronisasi pertama, akun admin mengikuti kredensial Nebula Presence.
                             </div>
                         ) : (
                             <div className="flex items-center justify-between text-sm pt-1">
