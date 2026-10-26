@@ -60,7 +60,8 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
 
   const teacherId = currentUser?.teacher?.id;
   const teacherIsWali = currentUser?.teacher?.is_wali_kelas;
-  const teacherDiv = currentUser?.teacher?.assigned_division;
+  const teacherCanManageClass = teacherIsWali || currentUser?.teacher?.is_penanggung_jawab;
+  const teacherDiv = currentUser?.teacher?.assigned_division || currentUser?.teacher?.managed_divisions?.[0];
   const studentId = currentUser?.student?.id;
   const userRole = currentUser?.role;
 
@@ -69,7 +70,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
       fetchPersonalData(studentId);
     } else if (userRole === 'TEACHER') {
       if (teacherId) fetchPersonalData(teacherId);
-      if (teacherIsWali && teacherDiv) fetchTeacherClassData(teacherDiv);
+      if (teacherCanManageClass && teacherDiv) fetchTeacherClassData(teacherDiv);
     }
 
     // Auto-refresh data setiap 10 detik agar kehadiran / scan RFID langsung terupdate di layar
@@ -83,7 +84,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [userRole, studentId, teacherId, teacherIsWali, teacherDiv]);
+  }, [userRole, studentId, teacherId, teacherCanManageClass, teacherDiv]);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex font-sans antialiased relative">
@@ -132,7 +133,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               onRefreshPersonal={(month) => fetchPersonalData(currentUser.teacher.id, month)}
-              onRefreshClass={(month) => fetchTeacherClassData(currentUser.teacher.assigned_division, month)}
+              onRefreshClass={(month) => fetchTeacherClassData(currentUser.teacher.assigned_division || currentUser.teacher.managed_divisions?.[0], month)}
               schoolInfo={schoolInfo}
             />
           )}
