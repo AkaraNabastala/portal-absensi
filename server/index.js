@@ -208,6 +208,19 @@ app.post('/api/auth/login', (req, res) => {
         const mentorEkskuls = db.prepare(`
             SELECT id, name FROM extracurriculars WHERE mentor_teacher_id = ? AND is_active = 1
         `).all(teacher.id);
+        const hasTeachingSchedule = Boolean(db.prepare(`
+            SELECT 1 FROM teaching_schedules s
+            WHERE s.is_active = 1 AND (
+                s.teacher_id = ?
+                OR EXISTS (
+                    SELECT 1 FROM teacher_absence_requests ar
+                    WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ?
+                      AND ar.status = 'DISETUJUI'
+                      AND ar.start_date <= date('now','localtime')
+                      AND ar.end_date >= date('now','localtime')
+                )
+            ) LIMIT 1
+        `).get(teacher.id, teacher.id));
 
         const teacherPayload = {
             id: teacher.id,
@@ -220,6 +233,7 @@ app.post('/api/auth/login', (req, res) => {
             assigned_division: assignedDivision,
             managed_divisions: managed.map(m => m.name),
             is_mentor: mentorEkskuls.length > 0,
+            has_teaching_schedule: hasTeachingSchedule,
             mentor_ekskuls: mentorEkskuls,
             photo_url: teacher.photo_url,
             phone_number: teacher.phone_number
