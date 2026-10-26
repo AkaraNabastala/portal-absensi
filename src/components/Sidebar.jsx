@@ -21,7 +21,8 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const isAdmin = currentUser?.role === 'ADMIN';
     const isWaliKelas = isTeacher && currentUser?.teacher?.is_wali_kelas;
     const isPenanggungJawab = isTeacher && currentUser?.teacher?.is_penanggung_jawab;
-    const canManageClass = isWaliKelas || (isPenanggungJawab && !!(currentUser?.teacher?.assigned_division || currentUser?.teacher?.managed_divisions?.length));
+    const hasAssignedClass = !!(currentUser?.teacher?.assigned_division || currentUser?.teacher?.managed_divisions?.length);
+    const canManageClass = (isWaliKelas || isPenanggungJawab) && hasAssignedClass;
     const assignedClass = currentUser?.teacher?.assigned_division || 'Kelas';
 
     // Dropdown terbuka otomatis jika tab aktif adalah salah satu submenu kelas
