@@ -23,8 +23,8 @@ export default function Navbar({ currentUser, activeTab, onLogout, schoolInfo })
             <div className="h-[3px] bg-gradient-to-r from-sky-300 via-sky-500 to-orange-300" />
             <div className="mx-auto flex min-h-[68px] max-w-[1600px] items-center justify-between gap-3 px-4 sm:px-6 lg:px-8">
                 <div className="flex min-w-0 items-center gap-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/80 ring-1 ring-sky-100">
-                        {schoolInfo?.school_logo ? <img src={schoolInfo.school_logo} alt="Logo instansi" className="h-9 w-9 object-contain" /> : <School className="h-6 w-6 text-sky-700" />}
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/10">
+                        {schoolInfo?.school_logo ? <img src={schoolInfo.school_logo} alt="Logo instansi" className="h-9 w-9 object-contain" /> : <School className="h-6 w-6 text-sky-200" />}
                     </div>
                     <div className="min-w-0">
                         <p className="portal-brand-eyebrow max-w-[42vw] truncate text-[10px] font-bold uppercase tracking-[0.16em] sm:text-[11px]">{schoolInfo?.school_name || 'NEBULA PRESENCE'}</p>
