@@ -1437,6 +1437,27 @@ app.get('/api/student/ekskul-attendance/:studentId', requireAuth, (req, res) => 
 // Hapus hanya record demo yang memiliki penanda persis dari seed lama; tidak menyentuh data lain.
 app.post('/api/admin/cleanup-demo-data', requireAuth, requireRole('ADMIN'), (req, res) => {
     const tx = db.transaction(() => {
+        // Jadwal demo yang terlihat pada halaman pengguna: nonaktifkan, jangan hapus,
+        // agar riwayat jurnal/relasi tetap aman dan jadwal asli tidak ikut terhapus.
+        const demoSchedulesDisabled = db.prepare(`
+            UPDATE teaching_schedules
+            SET is_active = 0
+            WHERE is_active = 1
+              AND division IN ('XI RPL 1', 'XII RPL 1')
+              AND subject_name IN (
+                'Pemodelan Perangkat Lunak',
+                'Dasar Pemrograman',
+                'Pemrograman Web & Mobile',
+                'Kecerdasan Buatan Terapan',
+                'Basis Data Terdistribusi',
+                'Cloud Computing & DevOps'
+              )
+              AND teacher_id IN (
+                SELECT id FROM teachers
+                WHERE nip IN ('198502022008012002', '198001012005011001', '199003032015011003')
+                   OR username IN ('guru.budi', 'guru.siti', 'guru.hendra')
+              )
+        `).run().changes;
         const demoMemberIds = db.prepare(`
             SELECT id FROM members
             WHERE nisn IN ('0051234567','0051234568','0051234569','0051234570','0051234571')
@@ -1461,16 +1482,17 @@ app.post('/api/admin/cleanup-demo-data', requireAuth, requireRole('ADMIN'), (req
               AND NOT EXISTS (SELECT 1 FROM teachers WHERE teachers.assigned_division = divisions.name)
               AND NOT EXISTS (SELECT 1 FROM teaching_schedules WHERE teaching_schedules.division = divisions.name)
         `).run().changes;
-        return { membersDeleted, activitiesDeleted, teachersDeleted, divisionsDeleted, demoMemberIds };
+        return { membersDeleted, activitiesDeleted, teachersDeleted, divisionsDeleted, demoSchedulesDisabled, demoMemberIds };
     });
     try {
         const result = tx();
         logAudit(db, req, 'CLEANUP_DEMO_DATA', 'database', null,
-            `Data demo dihapus: siswa ${result.membersDeleted}, guru ${result.teachersDeleted}, ekskul ${result.activitiesDeleted}, kelas ${result.divisionsDeleted}`);
+            `Data demo dibersihkan: jadwal dinonaktifkan ${result.demoSchedulesDisabled}, siswa ${result.membersDeleted}, guru ${result.teachersDeleted}, ekskul ${result.activitiesDeleted}, kelas ${result.divisionsDeleted}`);
         res.json({
             success: true,
-            message: `Pembersihan selesai. ${result.membersDeleted} siswa, ${result.teachersDeleted} guru, ${result.activitiesDeleted} ekskul, dan ${result.divisionsDeleted} kelas demo dihapus. Data lain tidak disentuh.`,
+            message: `Pembersihan selesai. ${result.demoSchedulesDisabled} jadwal contoh dinonaktifkan; ${result.membersDeleted} siswa, ${result.teachersDeleted} guru, ${result.activitiesDeleted} ekskul, dan ${result.divisionsDeleted} kelas demo diproses. Jadwal dinonaktifkan, bukan dihapus, agar riwayat tetap aman.`,
             counts: {
+                schedulesDisabled: result.demoSchedulesDisabled,
                 members: result.membersDeleted,
                 teachers: result.teachersDeleted,
                 extracurriculars: result.activitiesDeleted,
