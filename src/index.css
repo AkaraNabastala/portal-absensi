@@ -116,3 +116,38 @@ button { touch-action: manipulation; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
+
+
+/* Time-aware sky identity shared by the desktop and mobile portal. */
+:root {
+  --portal-sky-canvas: #f4f8fc;
+  --portal-sky-line: #dce8f3;
+  --portal-sky-header: linear-gradient(112deg, #101c30 0%, #172943 58%, #285b7b 100%);
+}
+html[data-sky-phase="morning"] {
+  --portal-sky-canvas: #f5faff;
+  --portal-sky-line: #dceaf6;
+  --portal-sky-header: linear-gradient(112deg, #18344f 0%, #285c7f 58%, #7bb9dc 100%);
+}
+html[data-sky-phase="day"] {
+  --portal-sky-canvas: #f7fbff;
+  --portal-sky-line: #d9e8f5;
+  --portal-sky-header: linear-gradient(112deg, #16334f 0%, #24628e 55%, #4f9dcc 100%);
+}
+html[data-sky-phase="sunset"] {
+  --portal-sky-canvas: #fbf8f5;
+  --portal-sky-line: #eadfd7;
+  --portal-sky-header: linear-gradient(112deg, #172943 0%, #344f70 58%, #b9846e 100%);
+}
+html[data-sky-phase="night"] {
+  --portal-sky-canvas: #f4f7fb;
+  --portal-sky-line: #d8e1ee;
+  --portal-sky-header: linear-gradient(112deg, #0b1730 0%, #142747 62%, #203f65 100%);
+}
+.portal-sky-canvas { background-color: var(--portal-sky-canvas) !important; transition: background-color .6s ease; }
+.portal-topbar { background: var(--portal-sky-header) !important; border-bottom-color: var(--portal-sky-line); transition: background .6s ease; }
+.portal-bottom-nav { border-color: var(--portal-sky-line); }
+.portal-content table thead { border-bottom: 1px solid var(--portal-sky-line); }
+@media (prefers-reduced-motion: reduce) {
+  .portal-sky-canvas, .portal-topbar { transition: none !important; }
+}
