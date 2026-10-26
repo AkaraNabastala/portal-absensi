@@ -60,7 +60,13 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const teacherTeachingMenus = [
         { id: 'teacher_journal', label: 'Jurnal Mengajar', icon: BookOpen },
         { id: 'teacher_ekskul', label: 'Ekskul Binaan', icon: Award },
+        { id: 'teacher_absence', label: 'Izin Mengajar', icon: FileText },
     ];
+    const visibleTeacherTeachingMenus = teacherTeachingMenus.filter(item => {
+        if (item.id === 'teacher_journal') return !!currentUser?.teacher?.has_teaching_schedule;
+        if (item.id === 'teacher_ekskul') return !!currentUser?.teacher?.is_mentor;
+        return true;
+    });
 
     // 3. Menu Khusus Kelas Binaan (Hanya untuk Wali Kelas, 1 kata ringkas)
     const waliKelasMenus = canManageClass ? [
@@ -181,13 +187,13 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
                 </div>
 
                 {/* Menu Khusus Pembelajaran & Ekskul untuk Guru */}
-                {isTeacher && (
+                {isTeacher && visibleTeacherTeachingMenus.length > 0 && (
                     <div className="pt-2 border-t border-slate-100">
                         <div className="px-3 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                             Pembelajaran & Ekskul
                         </div>
                         <div className="space-y-1 mt-1">
-                            {teacherTeachingMenus.map((item) => {
+                            {visibleTeacherTeachingMenus.map((item) => {
                                 const Icon = item.icon;
                                 const isActive = activeTab === item.id;
                                 return (
