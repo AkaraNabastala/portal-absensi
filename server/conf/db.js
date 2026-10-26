@@ -130,6 +130,29 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_schedules_day_div ON teaching_schedules (day_name, division);
 `);
 
+// Pengajuan izin guru dan penugasan guru pengganti.
+db.exec(`
+  CREATE TABLE IF NOT EXISTS teacher_absence_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    teacher_id INTEGER NOT NULL,
+    substitute_teacher_id INTEGER,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    reason TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'MENUNGGU',
+    notes TEXT,
+    approved_by TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (teacher_id) REFERENCES teachers(id) ON DELETE CASCADE,
+    FOREIGN KEY (substitute_teacher_id) REFERENCES teachers(id) ON DELETE SET NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_teacher_absence_dates
+    ON teacher_absence_requests (teacher_id, start_date, end_date, status);
+  CREATE INDEX IF NOT EXISTS idx_teacher_substitute_dates
+    ON teacher_absence_requests (substitute_teacher_id, start_date, end_date, status);
+`);
+
 // Migrasi aman untuk database Portal yang dibuat sebelum sinkronisasi jadwal Nebula.
 const scheduleColumns = db.prepare('PRAGMA table_info(teaching_schedules)').all();
 if (!scheduleColumns.some((column) => column.name === 'nebula_schedule_id')) {
