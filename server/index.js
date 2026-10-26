@@ -659,6 +659,8 @@ app.post('/api/teacher/journal', requireAuth, requireRole('TEACHER', 'ADMIN'), (
 
             for (const att of attendances) {
                 if (att.memberId) {
+                    const validStudent = db.prepare("SELECT 1 FROM members WHERE id = ? AND division = ? AND role = 'siswa' AND status = 'ACTIVE'").get(att.memberId, schedule.division);
+                    if (!validStudent) throw new Error('Presensi memuat siswa di luar kelas pada jadwal ini.');
                     upsertAtt.run(
                         journalId,
                         att.memberId,
@@ -1016,6 +1018,8 @@ app.post('/api/extracurriculars/sessions/:sessionId/attendance', requireAuth, re
 
         for (const att of attendances) {
             if (att.memberId) {
+                const activeMember = db.prepare("SELECT 1 FROM extracurricular_members WHERE extracurricular_id = ? AND member_id = ? AND status = 'ACTIVE'").get(session.extracurricular_id, att.memberId);
+                if (!activeMember) throw new Error('Presensi memuat siswa yang bukan anggota aktif ekstrakurikuler ini.');
                 upsert.run(
                     sessionId,
                     session.extracurricular_id,
