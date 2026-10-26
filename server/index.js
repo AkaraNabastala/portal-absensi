@@ -101,7 +101,7 @@ const canManageEkskul = (req, extracurricularId) => {
 const canTeachDivision = (req, division, date = new Date().toISOString().split('T')[0]) => {
     if (canAccessDivision(req, division)) return true;
     if (req.user?.role !== 'TEACHER' || !division) return false;
-    return Boolean(db.prepare(`SELECT 1 FROM teaching_schedules s WHERE s.division = ? AND s.is_active = 1 AND ((s.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM teacher_absence_requests own_ar WHERE own_ar.teacher_id = s.teacher_id AND own_ar.status = 'DISETUJUI' AND own_ar.start_date <= ? AND own_ar.end_date >= ?)) OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?)) LIMIT 1`).get(division, req.user.userId, req.user.userId, date, date));
+    return Boolean(db.prepare(`SELECT 1 FROM teaching_schedules s WHERE s.division = ? AND s.is_active = 1 AND ((s.teacher_id = ? AND NOT EXISTS (SELECT 1 FROM teacher_absence_requests own_ar WHERE own_ar.teacher_id = s.teacher_id AND own_ar.status = 'DISETUJUI' AND own_ar.start_date <= ? AND own_ar.end_date >= ?)) OR EXISTS (SELECT 1 FROM teacher_absence_requests ar WHERE ar.teacher_id = s.teacher_id AND ar.substitute_teacher_id = ? AND ar.status = 'DISETUJUI' AND ar.start_date <= ? AND ar.end_date >= ?)) LIMIT 1`).get(division, req.user.userId, date, date, req.user.userId, date, date));
 };
 
 // ==========================================
