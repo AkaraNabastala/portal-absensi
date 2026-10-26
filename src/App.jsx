@@ -89,7 +89,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
   }, [userRole, studentId, teacherId, teacherCanManageClass, teacherDiv]);
 
   return (
-    <div className="min-h-screen bg-[#f4f8fc] text-slate-800 flex font-sans antialiased relative">
+    <div className="portal-sky-canvas min-h-screen bg-[#f4f8fc] text-slate-800 flex font-sans antialiased relative">
       {/* Desktop Sidebar (Seragam untuk Siswa, Guru, dan Admin) */}
       <Sidebar
         currentUser={currentUser}
@@ -164,6 +164,23 @@ export default function App() {
   });
 
   const [schoolInfo, setSchoolInfo] = useState(null);
+
+  useEffect(() => {
+    const updateSkyPhase = () => {
+      const hour = new Date().getHours();
+      const phase = hour >= 5 && hour < 10
+        ? 'morning'
+        : hour >= 10 && hour < 16
+          ? 'day'
+          : hour >= 16 && hour < 19
+            ? 'sunset'
+            : 'night';
+      document.documentElement.dataset.skyPhase = phase;
+    };
+    updateSkyPhase();
+    const timer = window.setInterval(updateSkyPhase, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     fetch('/api/portal/info')
