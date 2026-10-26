@@ -68,6 +68,7 @@ export default function LoginPage({ onLoginSuccess }) {
                     setSetupRequired(false);
                     setSecret('');
                     setConfirmSecret('');
+                    setSetupKey('');
                     setRememberMe(false);
                     try { localStorage.removeItem('portal_remembered_identifier'); } catch (_) {}
                 } else {
@@ -160,7 +161,7 @@ export default function LoginPage({ onLoginSuccess }) {
 
                     <div className="mb-6">
                         <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-[#14253b]">
-                            Masuk ke akun
+                            {setupRequired ? 'Siapkan akun admin' : 'Masuk ke akun'}
                         </h2>
                     </div>
 <form onSubmit={handleSubmit} className="space-y-4">
