@@ -17,6 +17,7 @@ export default function AdminJournalsTab({ schoolInfo }) {
     const [journals, setJournals] = useState([]);
     const [loading, setLoading] = useState(false);
     const [teachers, setTeachers] = useState([]);
+    const [divisions, setDivisions] = useState([]);
     const [selectedTeacherId, setSelectedTeacherId] = useState('');
     const [searchDivision, setSearchDivision] = useState('');
 
@@ -51,8 +52,19 @@ export default function AdminJournalsTab({ schoolInfo }) {
         }
     };
 
+    const fetchDivisions = async () => {
+        try {
+            const res = await authFetch('/api/admin/divisions');
+            const data = await res.json();
+            if (data.success) setDivisions(data.data || []);
+        } catch (err) {
+            console.error('Gagal memuat daftar kelas:', err);
+        }
+    };
+
     useEffect(() => {
         fetchTeachers();
+        fetchDivisions();
     }, []);
 
     useEffect(() => {
@@ -151,13 +163,16 @@ export default function AdminJournalsTab({ schoolInfo }) {
                     <label className="block text-[11px] font-bold text-slate-500 uppercase mb-1">
                         Kelas / Rombel
                     </label>
-                    <input
-                        type="text"
-                        placeholder="Contoh: XII RPL 1..."
+                    <select
                         value={searchDivision}
                         onChange={(e) => setSearchDivision(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-semibold text-slate-800"
-                    />
+                    >
+                        <option value="">Semua Kelas</option>
+                        {divisions.map(division => (
+                            <option key={division.id} value={division.name}>{division.name}</option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
