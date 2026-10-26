@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Lock, User, Eye, EyeOff, ArrowRight, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
 import nabastalaLogo from '../assets/logo-nabastala.png';
+import { toast } from 'react-toastify';
 
 export default function LoginPage({ onLoginSuccess }) {
     const [identifier, setIdentifier] = useState('');
@@ -37,22 +38,23 @@ export default function LoginPage({ onLoginSuccess }) {
             });
             const data = await res.json();
             if (data.success) {
+                toast.success('Berhasil masuk ke Portal.');
                 onLoginSuccess(data.user, data.token);
             } else {
-                setError(data.message || 'ID atau Kata Sandi salah.');
+                toast.error(data.message || 'ID atau Kata Sandi salah.');
             }
         } catch (err) {
-            setError('Gagal menghubungi server.');
+            toast.error('Gagal menghubungi server. Periksa koneksi Anda.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 flex items-center justify-center p-4 sm:p-8 font-sans antialiased selection:bg-blue-500 selection:text-white">
+        <div className="min-h-screen bg-gradient-to-br from-[#07152f] via-blue-800 to-sky-600 flex items-center justify-center p-4 sm:p-8 font-sans antialiased selection:bg-blue-500 selection:text-white">
 
             {/* Container Utama (Card Split Screen Desktop / Stacked Mobile) */}
-            <div className="w-full max-w-4xl bg-white rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_25px_70px_rgba(0,0,0,0.3)] overflow-hidden grid grid-cols-1 md:grid-cols-2 relative transition-all duration-300">
+            <div className="w-full max-w-4xl bg-white rounded-[1.75rem] sm:rounded-[2.25rem] shadow-[0_28px_90px_rgba(3,12,30,0.38)] border border-white/20 overflow-hidden grid grid-cols-1 md:grid-cols-2 relative transition-all duration-300">
 
                 {/* ======================================================== */}
                 {/* SISI KIRI: BRANDING ROYAL BLUE DENGAN BOLA 3D ELEGAN     */}
