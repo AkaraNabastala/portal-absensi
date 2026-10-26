@@ -96,7 +96,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     if (onSettingsChange) onSettingsChange(data.settings);
                 }
                 setStatusMessage(data.message || 'Sinkronisasi dengan Nebula Presence berhasil!');
-                setStatusDialog({ type: 'success', message: data.message || 'Sinkronisasi dengan Nebula Presence berhasil!' });
+                setStatusDialog({ type: Array.isArray(data.errors) && data.errors.length ? 'error' : 'success', message: data.message || 'Sinkronisasi dengan Nebula Presence selesai.', errors: data.errors || [] });
                 setTimeout(() => setStatusMessage(''), 4000);
             } else {
                 setStatusDialog({ type: 'error', message: data.message || 'Gagal sinkronisasi.' });
