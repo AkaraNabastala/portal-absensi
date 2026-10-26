@@ -79,7 +79,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
         fetchPersonalData(studentId);
       } else if (userRole === 'TEACHER') {
         if (teacherId) fetchPersonalData(teacherId);
-        if (teacherIsWali && teacherDiv) fetchTeacherClassData(teacherDiv);
+        if (teacherCanManageClass && teacherDiv) fetchTeacherClassData(teacherDiv);
       }
     }, 10000);
 
