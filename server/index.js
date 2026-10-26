@@ -1686,15 +1686,18 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
             synced++;
         }
 
-        // Portal adalah cerminan data Nebula. Nonaktifkan jadwal lama/tidak terpetakan
-        // setiap kali menerima snapshot, termasuk ketika sebagian data gagal dipetakan.
-        const activeRemoteIds = [...syncedRemoteIds];
-        const result = activeRemoteIds.length
-            ? db.prepare(`UPDATE teaching_schedules SET is_active = 0
-                WHERE is_active = 1
-                  AND (nebula_schedule_id IS NULL OR nebula_schedule_id NOT IN (${activeRemoteIds.map(() => '?').join(',')}))`).run(...activeRemoteIds)
-            : db.prepare('UPDATE teaching_schedules SET is_active = 0 WHERE is_active = 1').run();
-        disabled = result.changes;
+        // Rekonsiliasi snapshot hanya aman jika setiap jadwal sumber berhasil dipetakan.
+        // Jika ada jadwal yang dilewati, jangan menonaktifkan jadwal lama: itu bisa
+        // menghapus jadwal valid hanya karena identitas guru belum cocok.
+        if (skipped === 0) {
+            const activeRemoteIds = [...syncedRemoteIds];
+            const result = activeRemoteIds.length
+                ? db.prepare(`UPDATE teaching_schedules SET is_active = 0
+                    WHERE is_active = 1
+                      AND (nebula_schedule_id IS NULL OR nebula_schedule_id NOT IN (${activeRemoteIds.map(() => '?').join(',')}))`).run(...activeRemoteIds)
+                : db.prepare('UPDATE teaching_schedules SET is_active = 0 WHERE is_active = 1').run();
+            disabled = result.changes;
+        }
         db.prepare('UPDATE school_settings SET last_sync_at = CURRENT_TIMESTAMP WHERE id = 1').run();
     });
     try {
@@ -1702,10 +1705,10 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
         const success = skipped === 0;
         res.json({
             success, synced, skipped, disabled,
-            reconciled: true,
+            reconciled: skipped === 0,
             message: success
                 ? `${synced} jadwal dari Nebula disinkronkan; ${disabled} jadwal lama yang tidak ada di sumber dinonaktifkan.`
-                : `${synced} jadwal berhasil disinkronkan, ${skipped} dilewati, dan ${disabled} jadwal lama/tidak terpetakan dinonaktifkan. Periksa identitas guru dan data jadwal.`
+                : `${synced} jadwal berhasil disinkronkan, ${skipped} dilewati. Jadwal lama dipertahankan agar tidak hilang; periksa identitas guru dan data jadwal lalu sinkronkan ulang.`
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Gagal menyinkronkan jadwal: ' + error.message });
