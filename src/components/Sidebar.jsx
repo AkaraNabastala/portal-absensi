@@ -21,7 +21,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const isAdmin = currentUser?.role === 'ADMIN';
     const isWaliKelas = isTeacher && currentUser?.teacher?.is_wali_kelas;
     const isPenanggungJawab = isTeacher && currentUser?.teacher?.is_penanggung_jawab;
-    const canManageClass = isWaliKelas || isPenanggungJawab;
+    const canManageClass = isWaliKelas || (isPenanggungJawab && !!(currentUser?.teacher?.assigned_division || currentUser?.teacher?.managed_divisions?.length));
     const assignedClass = currentUser?.teacher?.assigned_division || 'Kelas';
 
     // Dropdown terbuka otomatis jika tab aktif adalah salah satu submenu kelas
@@ -60,7 +60,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     const teacherTeachingMenus = [
         { id: 'teacher_journal', label: 'Jurnal Mengajar', icon: BookOpen },
         { id: 'teacher_ekskul', label: 'Ekskul Binaan', icon: Award },
-        { id: 'teacher_absence', label: 'Izin Mengajar', icon: FileText },
+        { id: 'teacher_absence', label: isPenanggungJawab ? 'Izin & Pengganti' : 'Izin Mengajar', icon: FileText },
     ];
     const visibleTeacherTeachingMenus = teacherTeachingMenus.filter(item => {
         if (item.id === 'teacher_journal') return !!currentUser?.teacher?.has_teaching_schedule;
