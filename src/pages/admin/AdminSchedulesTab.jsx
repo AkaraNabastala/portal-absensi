@@ -11,7 +11,8 @@ import {
     Search,
     Layers,
     Filter,
-    X
+    X,
+    AlertTriangle
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -22,6 +23,9 @@ export default function AdminSchedulesTab() {
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('success');
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Filter
     const [filterDivision, setFilterDivision] = useState('ALL');
@@ -70,55 +74,51 @@ export default function AdminSchedulesTab() {
         loadData();
     }, []);
 
+    const showStatus = (message, type = 'success') => {
+        setStatusType(type);
+        setStatusMessage(message);
+        setTimeout(() => setStatusMessage(''), type === 'error' ? 5000 : 3000);
+    };
+
     const handleCreate = async (e) => {
         e.preventDefault();
-        if (!teacherId || !division || !subjectName || !dayName || !startTime || !endTime) {
-            alert('Semua bidang jadwal wajib diisi.');
+        if (!teacherId || !division || !subjectName.trim() || !dayName || !startTime || !endTime) {
+            showStatus('Semua bidang jadwal wajib diisi.', 'error');
             return;
         }
-
         try {
             const res = await authFetch('/api/admin/schedules', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    teacherId,
-                    division,
-                    subjectName,
-                    dayName,
-                    startTime,
-                    endTime,
-                    room
-                })
+                body: JSON.stringify({ teacherId, division, subjectName: subjectName.trim(), dayName, startTime, endTime, room })
             });
             const data = await res.json();
-            if (data.success) {
-                setStatusMessage(`Jadwal "${subjectName}" kelas ${division} berhasil ditambahkan.`);
-                setTimeout(() => setStatusMessage(''), 3000);
-                setShowModal(false);
-                setSubjectName('');
-                loadData();
-            } else {
-                alert(data.message || 'Gagal menambahkan jadwal.');
-            }
-        } catch {
-            alert('Gagal menghubungi server.');
+            if (!res.ok || !data.success) throw new Error(data.message || 'Gagal menambahkan jadwal.');
+            showStatus('Jadwal "' + subjectName.trim() + '" kelas ' + division + ' berhasil ditambahkan.');
+            setShowModal(false);
+            setSubjectName('');
+            await loadData();
+        } catch (error) {
+            showStatus(error.message || 'Gagal menghubungi server.', 'error');
         }
     };
 
-    const handleDelete = async (id, subjectName, div) => {
-        if (!confirm(`Hapus jadwal ${subjectName} untuk kelas ${div}?`)) return;
+    const handleDelete = (id, subjectName, div) => setDeleteTarget({ id, subjectName, div });
 
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
         try {
-            const res = await authFetch(`/api/admin/schedules/${id}`, { method: 'DELETE' });
+            const res = await authFetch('/api/admin/schedules/' + deleteTarget.id, { method: 'DELETE' });
             const data = await res.json();
-            if (data.success) {
-                setStatusMessage(`Jadwal ${subjectName} berhasil dihapus.`);
-                setTimeout(() => setStatusMessage(''), 3000);
-                loadData();
-            }
-        } catch {
-            alert('Gagal menghapus jadwal.');
+            if (!res.ok || !data.success) throw new Error(data.message || 'Gagal menghapus jadwal.');
+            showStatus('Jadwal ' + deleteTarget.subjectName + ' berhasil dihapus.');
+            setDeleteTarget(null);
+            await loadData();
+        } catch (error) {
+            showStatus(error.message || 'Gagal menghapus jadwal.', 'error');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -135,7 +135,7 @@ export default function AdminSchedulesTab() {
         <div className="space-y-6">
             {/* Status Notifikasi */}
             {statusMessage && (
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
+                <div className={"p-4 rounded-2xl border text-xs sm:text-sm font-semibold flex items-center gap-2 " + (statusType === "error" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800")}>
                     <Check className="w-4 h-4 text-emerald-600 shrink-0" />
                     <span>{statusMessage}</span>
                 </div>
@@ -413,6 +413,19 @@ export default function AdminSchedulesTab() {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-schedule-title">
+                    <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><AlertTriangle className="h-6 w-6" /></div>
+                        <h3 id="delete-schedule-title" className="mt-4 text-lg font-black text-slate-900">Hapus jadwal?</h3>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600">Jadwal {deleteTarget.subjectName} untuk kelas {deleteTarget.div} akan dihapus.</p>
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button type="button" onClick={() => setDeleteTarget(null)} disabled={deleting} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-50">Batal</button>
+                            <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{deleting ? 'Menghapus…' : 'Ya, hapus jadwal'}</button>
+                        </div>
+                    </section>
                 </div>
             )}
         </div>
