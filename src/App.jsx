@@ -204,6 +204,9 @@ export default function App() {
       const daylight = Math.max(0, Math.min(1, (hour - 5.5) / 12.5));
       root.style.setProperty('--portal-sky-object-x', `${7 + daylight * 78}%`);
       root.style.setProperty('--portal-sky-object-y', `${9 + Math.sin(daylight * Math.PI) * 30}%`);
+      const moonProgress = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12;
+      root.style.setProperty('--portal-sky-moon-x', `${85 - Math.max(0, Math.min(1, moonProgress)) * 78}%`);
+      root.style.setProperty('--portal-sky-moon-y', `${9 + Math.sin(Math.max(0, Math.min(1, moonProgress)) * Math.PI) * 30}%`);
     };
     updateSky();
     const timer = window.setInterval(updateSky, 15_000);
