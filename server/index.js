@@ -181,9 +181,21 @@ app.get('/api/portal/info', (req, res) => {
 // 2. SISTEM LOGIN AMAN & MANAJEMEN SESI (P0)
 // ==========================================
 // First-run bootstrap: buat satu akun admin jika database masih belum memiliki kredensial admin.
+const isLocalDevelopmentSetup = (req) => {
+    // Do not infer local access in production: a reverse proxy may make every request appear local.
+    if (process.env.NODE_ENV === 'production') return false;
+    const address = String(req.socket?.remoteAddress || '').toLowerCase();
+    return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
+};
+
 app.get('/api/auth/bootstrap-status', (req, res) => {
     const settings = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
-    res.json({ success: true, setupRequired: !settings?.admin_password_hash, setupKeyRequired: !settings?.admin_password_hash });
+    const setupRequired = !settings?.admin_password_hash;
+    res.json({
+        success: true,
+        setupRequired,
+        setupKeyRequired: setupRequired && !isLocalDevelopmentSetup(req)
+    });
 });
 
 app.post('/api/auth/bootstrap-admin', (req, res) => {
@@ -196,14 +208,16 @@ app.post('/api/auth/bootstrap-admin', (req, res) => {
     if (password.length < 12 || password.length > 200) {
         return res.status(400).json({ success: false, message: 'Kata sandi admin minimal 12 karakter.' });
     }
-    if (!setupKey) {
-        return res.status(400).json({ success: false, message: 'Kunci setup awal wajib diisi.' });
+    const localDevelopmentSetup = isLocalDevelopmentSetup(req);
+    if (!localDevelopmentSetup && !setupKey) {
+        return res.status(400).json({ success: false, message: 'Kunci setup awal wajib diisi pada instalasi hosting.' });
     }
 
     const createInitialAdmin = db.transaction(() => {
         const current = db.prepare('SELECT admin_password_hash FROM school_settings WHERE id = 1').get();
         const bootstrap = db.prepare('SELECT token_hash FROM portal_bootstrap WHERE id = 1').get();
-        if (current?.admin_password_hash || !bootstrap || !bcrypt.compareSync(setupKey, bootstrap.token_hash)) return false;
+        const keyIsValid = localDevelopmentSetup || Boolean(bootstrap && bcrypt.compareSync(setupKey, bootstrap.token_hash));
+        if (current?.admin_password_hash || !bootstrap || !keyIsValid) return false;
         const passwordHash = bcrypt.hashSync(password, 12);
         db.prepare(`
             UPDATE school_settings
