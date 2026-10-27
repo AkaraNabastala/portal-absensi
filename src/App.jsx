@@ -4,6 +4,8 @@ import Sidebar from './components/Sidebar';
 import BottomNav from './components/BottomNav';
 import Navbar from './components/Navbar';
 import { authFetch } from './utils/api';
+import { ToastContainer, toast } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 import LoginPage from './pages/LoginPage';
 import WaliDashboard from './pages/wali/Dashboard';
@@ -60,7 +62,8 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
 
   const teacherId = currentUser?.teacher?.id;
   const teacherIsWali = currentUser?.teacher?.is_wali_kelas;
-  const teacherDiv = currentUser?.teacher?.assigned_division;
+  const teacherCanManageClass = teacherIsWali || currentUser?.teacher?.is_penanggung_jawab;
+  const teacherDiv = currentUser?.teacher?.assigned_division || currentUser?.teacher?.managed_divisions?.[0];
   const studentId = currentUser?.student?.id;
   const userRole = currentUser?.role;
 
@@ -69,7 +72,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
       fetchPersonalData(studentId);
     } else if (userRole === 'TEACHER') {
       if (teacherId) fetchPersonalData(teacherId);
-      if (teacherIsWali && teacherDiv) fetchTeacherClassData(teacherDiv);
+      if (teacherCanManageClass && teacherDiv) fetchTeacherClassData(teacherDiv);
     }
 
     // Auto-refresh data setiap 10 detik agar kehadiran / scan RFID langsung terupdate di layar
@@ -78,15 +81,15 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
         fetchPersonalData(studentId);
       } else if (userRole === 'TEACHER') {
         if (teacherId) fetchPersonalData(teacherId);
-        if (teacherIsWali && teacherDiv) fetchTeacherClassData(teacherDiv);
+        if (teacherCanManageClass && teacherDiv) fetchTeacherClassData(teacherDiv);
       }
     }, 10000);
 
     return () => clearInterval(interval);
-  }, [userRole, studentId, teacherId, teacherIsWali, teacherDiv]);
+  }, [userRole, studentId, teacherId, teacherCanManageClass, teacherDiv]);
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-800 flex font-sans antialiased relative">
+    <div className="portal-sky-canvas min-h-screen bg-[#f4f8fc] text-slate-800 flex font-sans antialiased relative">
       {/* Desktop Sidebar (Seragam untuk Siswa, Guru, dan Admin) */}
       <Sidebar
         currentUser={currentUser}
@@ -106,7 +109,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
           schoolInfo={schoolInfo} 
         />
 
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-8 py-4 sm:py-8">
+        <main className="portal-content flex-1 w-full max-w-[1600px] mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-7">
           {currentUser.role === 'ADMIN' ? (
             <AdminDashboard
               currentUser={currentUser}
@@ -132,7 +135,7 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
               activeTab={activeTab}
               setActiveTab={setActiveTab}
               onRefreshPersonal={(month) => fetchPersonalData(currentUser.teacher.id, month)}
-              onRefreshClass={(month) => fetchTeacherClassData(currentUser.teacher.assigned_division, month)}
+              onRefreshClass={(month) => fetchTeacherClassData(currentUser.teacher.assigned_division || currentUser.teacher.managed_divisions?.[0], month)}
               schoolInfo={schoolInfo}
             />
           )}
@@ -163,6 +166,41 @@ export default function App() {
   const [schoolInfo, setSchoolInfo] = useState(null);
 
   useEffect(() => {
+    const root = document.documentElement;
+    const stops = [
+      { minute: 0, canvas: '#18243b', accent: '#607da8', warm: '#25324a' },
+      { minute: 300, canvas: '#263b58', accent: '#83aaca', warm: '#bd9b8f' },
+      { minute: 420, canvas: '#c8e7fb', accent: '#55a9df', warm: '#ffe0b0' },
+      { minute: 600, canvas: '#e6f6ff', accent: '#269bd3', warm: '#f8fcff' },
+      { minute: 900, canvas: '#d7edfb', accent: '#318fc4', warm: '#d7f0ff' },
+      { minute: 1020, canvas: '#ffd0b2', accent: '#e47d57', warm: '#ffc18f' },
+      { minute: 1140, canvas: '#6a6077', accent: '#ba8a8c', warm: '#514359' },
+      { minute: 1260, canvas: '#263650', accent: '#708bb8', warm: '#2a354e' },
+      { minute: 1440, canvas: '#18243b', accent: '#607da8', warm: '#25324a' }
+    ];
+    const toRgb = hex => hex.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
+    const toHex = values => '#' + values.map(value => Math.round(value).toString(16).padStart(2, '0')).join('');
+    const mix = (a, b, t) => toHex(toRgb(a).map((value, index) => value + (toRgb(b)[index] - value) * t));
+    const updateSky = () => {
+      const now = new Date();
+      const minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      const hour = minute / 60;
+      const phase = hour >= 5 && hour < 10 ? 'morning' : hour >= 10 && hour < 16 ? 'day' : hour >= 16 && hour < 19 ? 'sunset' : 'night';
+      root.dataset.skyPhase = phase;
+      let index = stops.findIndex((stop, i) => i < stops.length - 1 && minute >= stop.minute && minute <= stops[i + 1].minute);
+      if (index < 0) index = stops.length - 2;
+      const from = stops[index], to = stops[index + 1];
+      const progress = Math.max(0, Math.min(1, (minute - from.minute) / (to.minute - from.minute)));
+      root.style.setProperty('--portal-sky-canvas', mix(from.canvas, to.canvas, progress));
+      root.style.setProperty('--portal-sky-accent', mix(from.accent, to.accent, progress));
+      root.style.setProperty('--portal-sky-warm', mix(from.warm, to.warm, progress));
+    };
+    updateSky();
+    const timer = window.setInterval(updateSky, 15_000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
     fetch('/api/portal/info')
       .then(res => res.json())
       .then(res => {
@@ -182,6 +220,7 @@ export default function App() {
   };
 
   const handleLogout = () => {
+    toast.info('Anda telah keluar dari Portal.');
     setCurrentUser(null);
     try {
       authFetch('/api/auth/logout', { method: 'POST' }).catch(() => {});
@@ -229,6 +268,7 @@ export default function App() {
         {/* Fallback ke Home */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <ToastContainer position="top-right" autoClose={3200} newestOnTop closeOnClick pauseOnFocusLoss draggable theme="light" toastClassName="!rounded-2xl !border !border-slate-200 !shadow-xl" />
     </BrowserRouter>
   );
 }

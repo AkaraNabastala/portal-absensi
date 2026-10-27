@@ -31,7 +31,7 @@ export function verifySession(db, token) {
     const session = db.prepare(`
         SELECT token, user_role, user_id, user_data, expires_at
         FROM sessions
-        WHERE token = ? AND expires_at > CURRENT_TIMESTAMP
+        WHERE token = ? AND datetime(expires_at) > datetime('now')
     `).get(token);
 
     if (!session) return null;

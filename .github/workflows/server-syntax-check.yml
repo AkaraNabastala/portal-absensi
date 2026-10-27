@@ -1,0 +1,33 @@
+name: Portal server syntax check
+
+on:
+  push:
+    branches:
+      - main
+      - audit-and-fixes-2026-10
+      - audit-comprehensive-2026-10
+  pull_request:
+    branches:
+      - main
+      - audit-and-fixes-2026-10
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check server JavaScript syntax
+        run: |
+          node --check server/index.js
+          node --check server/conf/auth.js
+          node --check server/conf/db.js
+          node --check server/conf/nebulaSync.js

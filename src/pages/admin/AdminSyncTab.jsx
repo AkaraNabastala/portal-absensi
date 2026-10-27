@@ -5,7 +5,10 @@ import {
     Copy, 
     Check, 
     ShieldCheck,
-    Globe
+    Globe,
+    AlertCircle,
+    CheckCircle2,
+    X
 } from 'lucide-react';
 import { authFetch } from '../../utils/api';
 
@@ -16,9 +19,15 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const [syncingNow, setSyncingNow] = useState(false);
     const [generatingToken, setGeneratingToken] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    const [statusDialog, setStatusDialog] = useState(null);
+    const [pinMemberIdentifier, setPinMemberIdentifier] = useState('');
+    const [newParentPin, setNewParentPin] = useState('');
+    const [savingParentPin, setSavingParentPin] = useState(false);
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const gatewayUrl = `${origin}/api/sync`;
+    const gatewayUrl = typeof window !== 'undefined' && ['5173', '5174'].includes(window.location.port)
+        ? `${window.location.protocol}//${window.location.hostname}:5000/api/sync`
+        : `${origin}/api/sync`;
 
     const loadLiveSettings = async () => {
         try {
@@ -56,6 +65,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const handleTriggerDirectSync = async () => {
         setSyncingNow(true);
         setStatusMessage('');
+        setStatusDialog({ type: 'progress', message: 'Menghubungkan Portal dengan Nebula Presence…' });
         try {
             const res = await authFetch('/api/admin/trigger-direct-sync', {
                 method: 'POST',
@@ -68,17 +78,44 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     if (onSettingsChange) onSettingsChange(data.settings);
                 }
                 setStatusMessage(data.message || 'Sinkronisasi dengan Nebula Presence berhasil!');
+                setStatusDialog({ type: Array.isArray(data.errors) && data.errors.length ? 'error' : 'success', message: data.message || 'Sinkronisasi dengan Nebula Presence selesai.', errors: data.errors || [] });
                 setTimeout(() => setStatusMessage(''), 4000);
             } else {
-                alert(data.message || 'Gagal sinkronisasi.');
+                setStatusDialog({ type: 'error', message: data.message || 'Gagal sinkronisasi.' });
             }
         } catch {
-            alert('Gagal menghubungi server.');
+            setStatusDialog({ type: 'error', message: 'Gagal menghubungi server.' });
         } finally {
             setSyncingNow(false);
         }
     };
 
+    const handleSetParentPin = async (event) => {
+        event.preventDefault();
+        if (!pinMemberIdentifier.trim() || !newParentPin) return;
+        setSavingParentPin(true);
+        try {
+            const endpoint = '/api/admin/members/' + encodeURIComponent(pinMemberIdentifier.trim()) + '/parent-pin';
+            const res = await authFetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: newParentPin })
+            });
+            const data = await res.json();
+            setStatusDialog({
+                type: res.ok && data.success ? 'success' : 'error',
+                message: data.message || (res.ok ? 'PIN berhasil diperbarui.' : 'Gagal memperbarui PIN.')
+            });
+            if (res.ok && data.success) {
+                setPinMemberIdentifier('');
+                setNewParentPin('');
+            }
+        } catch {
+            setStatusDialog({ type: 'error', message: 'Tidak dapat menghubungi server untuk memperbarui PIN.' });
+        } finally {
+            setSavingParentPin(false);
+        }
+    };
     return (
         <div className="space-y-6">
             {/* Notifikasi Status */}
@@ -90,16 +127,16 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
             )}
 
             {/* Banner Sinkronisasi */}
-            <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-3xl p-6 sm:p-8 text-white shadow-xs">
+            <div className="bg-gradient-to-br from-slate-950 via-blue-900 to-sky-700 rounded-3xl p-6 sm:p-8 text-white shadow-xs">
                 <div className="max-w-2xl">
-                    <span className="text-xs uppercase font-bold tracking-wider text-blue-200 block mb-1">
+                    <span className="text-xs uppercase font-bold tracking-wider text-sky-200 block mb-1">
                         Koneksi Aplikasi Absensi
                     </span>
                     <h2 className="text-xl sm:text-2xl font-black tracking-tight">
                         Secret Token & Gateway Sinkronisasi
                     </h2>
-                    <p className="text-xs sm:text-sm text-blue-100 mt-2 leading-relaxed">
-                        Salin Secret Token dan URL Gateway ini ke aplikasi absensi desktop lokal untuk menghubungkan pengiriman data scan absensi secara otomatis.
+                    <p className="text-xs sm:text-sm text-sky-100 mt-2 leading-relaxed">
+                        Gunakan URL dan token ini untuk menghubungkan Portal dengan Nebula Presence.
                     </p>
                 </div>
             </div>
@@ -113,7 +150,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         </div>
                         <div>
                             <h3 className="text-sm sm:text-base font-bold text-slate-900">Secret Token / API Key</h3>
-                            <p className="text-xs text-slate-500">Token acak unik untuk keamanan komunikasi antar-sistem</p>
+                            <p className="text-xs text-slate-500">Token koneksi antar-aplikasi</p>
                         </div>
                     </div>
 
@@ -139,7 +176,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         <input
                             type="text"
                             readOnly
-                            value={activeSettings?.sync_secret || 'SEC-NEBULA-SYNC-KEY-2026'}
+                            value={activeSettings?.sync_secret || ''}
                             className="w-full bg-slate-50 border border-slate-200 rounded-2xl py-3 px-3.5 pr-24 font-mono text-xs sm:text-sm font-bold text-slate-800 select-all focus:outline-none"
                         />
                         <button
@@ -151,7 +188,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         </button>
                     </div>
                     <p className="text-[11px] text-slate-500 mt-2">
-                        Token ini dihasilkan secara acak melalui cryptographic hash sehingga setiap sekolah/instansi memiliki token yang berbeda dan aman.
+                        Jaga token ini tetap rahasia.
                     </p>
                 </div>
 
@@ -177,6 +214,46 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                     </div>
                 </div>
             </div>
+            {/* Pengelolaan PIN akun siswa/wali */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-50 text-amber-700 rounded-xl"><KeyRound className="w-5 h-5" /></div>
+                    <div>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900">Atur PIN Siswa / Wali</h3>
+                        <p className="text-xs text-slate-500">Tetapkan PIN pribadi; sistem tidak lagi menggunakan PIN bawaan.</p>
+                    </div>
+                </div>
+                <form onSubmit={handleSetParentPin} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                    <div>
+                        <label htmlFor="parent-pin-member" className="block text-xs font-bold text-slate-600 mb-2">ID anggota, NISN, atau NIPD</label>
+                        <input id="parent-pin-member" value={pinMemberIdentifier} onChange={(event) => setPinMemberIdentifier(event.target.value)} autoComplete="off" required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="Masukkan ID siswa" />
+                    </div>
+                    <div>
+                        <label htmlFor="parent-pin-value" className="block text-xs font-bold text-slate-600 mb-2">PIN baru (6–12 digit)</label>
+                        <input id="parent-pin-value" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6,12}" maxLength={12} value={newParentPin} onChange={(event) => setNewParentPin(event.target.value.replace(/\D/g, '').slice(0, 12))} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="PIN pribadi" />
+                    </div>
+                    <button type="submit" disabled={savingParentPin || !pinMemberIdentifier.trim() || newParentPin.length < 6} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-50">
+                        {savingParentPin ? <RefreshCw className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                        {savingParentPin ? 'Menyimpan…' : 'Simpan PIN'}
+                    </button>
+                </form>
+                <p className="text-[11px] text-slate-500">PIN bawaan dan pola yang mudah ditebak ditolak. Sampaikan PIN baru secara privat kepada wali/siswa yang bersangkutan.</p>
+            </div>
+            {statusDialog && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-live="polite">
+                    <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="flex items-start gap-3">
+                                {statusDialog.type === 'progress' ? <RefreshCw className="mt-0.5 h-6 w-6 animate-spin text-blue-600" /> : statusDialog.type === 'success' ? <CheckCircle2 className="mt-0.5 h-6 w-6 text-emerald-600" /> : <AlertCircle className="mt-0.5 h-6 w-6 text-rose-600" />}
+                                <div><h3 className="font-bold text-slate-900">{statusDialog.type === 'progress' ? 'Sedang Diproses' : statusDialog.type === 'success' ? 'Berhasil' : 'Perlu Diperiksa'}</h3><p className="mt-2 text-sm leading-relaxed text-slate-600">{statusDialog.message}</p>{Array.isArray(statusDialog.errors) && statusDialog.errors.length > 0 && <ul className="mt-3 max-h-32 list-disc space-y-1 overflow-auto pl-5 text-xs text-rose-700">{statusDialog.errors.slice(0, 6).map((error, index) => <li key={index}>{String(error)}</li>)}</ul>}</div>
+                            </div>
+                            {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Tutup"><X className="h-4 w-4" /></button>}
+                        </div>
+                        {statusDialog.type === 'progress' && <><div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-full animate-pulse rounded-full bg-blue-600/60" /></div><p className="mt-2 text-xs text-slate-500">Menunggu respons server. Persentase progres tidak ditampilkan karena server belum menyediakan data progres bertahap.</p></>}
+                        {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white">Tutup</button>}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

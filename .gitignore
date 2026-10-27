@@ -26,3 +26,22 @@ dist-ssr
 *.old
 *.sqlite-wal
 *.sqlite-shm
+
+# Database SQLite lokal berisi data sekolah; jangan unggah ke Git
+/server/database/*.sqlite
+/server/database/*.sqlite-wal
+/server/database/*.sqlite-shm
+
+# Environment configuration must never be committed
+.env
+.env.*
+!.env.example
+
+# Local databases and test uploads may contain personal data
+/server/database/*.sqlite
+/server/database/*.sqlite-wal
+/server/database/*.sqlite-shm
+/server/database/*.db
+/server/database/*.jpg
+/server/database/*.jpeg
+/server/database/*.png
