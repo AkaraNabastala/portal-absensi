@@ -166,19 +166,37 @@ export default function App() {
   const [schoolInfo, setSchoolInfo] = useState(null);
 
   useEffect(() => {
-    const updateSkyPhase = () => {
-      const hour = new Date().getHours();
-      const phase = hour >= 5 && hour < 10
-        ? 'morning'
-        : hour >= 10 && hour < 16
-          ? 'day'
-          : hour >= 16 && hour < 19
-            ? 'sunset'
-            : 'night';
-      document.documentElement.dataset.skyPhase = phase;
+    const root = document.documentElement;
+    const stops = [
+      { minute: 0, canvas: '#18243b', accent: '#607da8', warm: '#25324a' },
+      { minute: 300, canvas: '#263b58', accent: '#83aaca', warm: '#bd9b8f' },
+      { minute: 420, canvas: '#c8e7fb', accent: '#55a9df', warm: '#ffe0b0' },
+      { minute: 600, canvas: '#e6f6ff', accent: '#269bd3', warm: '#f8fcff' },
+      { minute: 900, canvas: '#d7edfb', accent: '#318fc4', warm: '#d7f0ff' },
+      { minute: 1020, canvas: '#ffd0b2', accent: '#e47d57', warm: '#ffc18f' },
+      { minute: 1140, canvas: '#6a6077', accent: '#ba8a8c', warm: '#514359' },
+      { minute: 1260, canvas: '#263650', accent: '#708bb8', warm: '#2a354e' },
+      { minute: 1440, canvas: '#18243b', accent: '#607da8', warm: '#25324a' }
+    ];
+    const toRgb = hex => hex.match(/[a-f0-9]{2}/gi).map(value => parseInt(value, 16));
+    const toHex = values => '#' + values.map(value => Math.round(value).toString(16).padStart(2, '0')).join('');
+    const mix = (a, b, t) => toHex(toRgb(a).map((value, index) => value + (toRgb(b)[index] - value) * t));
+    const updateSky = () => {
+      const now = new Date();
+      const minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      const hour = minute / 60;
+      const phase = hour >= 5 && hour < 10 ? 'morning' : hour >= 10 && hour < 16 ? 'day' : hour >= 16 && hour < 19 ? 'sunset' : 'night';
+      root.dataset.skyPhase = phase;
+      let index = stops.findIndex((stop, i) => i < stops.length - 1 && minute >= stop.minute && minute <= stops[i + 1].minute);
+      if (index < 0) index = stops.length - 2;
+      const from = stops[index], to = stops[index + 1];
+      const progress = Math.max(0, Math.min(1, (minute - from.minute) / (to.minute - from.minute)));
+      root.style.setProperty('--portal-sky-canvas', mix(from.canvas, to.canvas, progress));
+      root.style.setProperty('--portal-sky-accent', mix(from.accent, to.accent, progress));
+      root.style.setProperty('--portal-sky-warm', mix(from.warm, to.warm, progress));
     };
-    updateSkyPhase();
-    const timer = window.setInterval(updateSkyPhase, 60_000);
+    updateSky();
+    const timer = window.setInterval(updateSky, 15_000);
     return () => window.clearInterval(timer);
   }, []);
 
