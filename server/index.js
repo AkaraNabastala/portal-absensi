@@ -52,8 +52,29 @@ try {
 }
 
 // Security headers & Middleware
+const configuredOrigins = String(process.env.PORTAL_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+const isLocalDevelopmentOrigin = (origin) => {
+    try {
+        const parsed = new URL(origin);
+        return ['localhost', '127.0.0.1'].includes(parsed.hostname) &&
+            ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+        return false;
+    }
+};
 app.use(cors({
-    origin: true,
+    origin(origin, callback) {
+        // Requests from native clients/server-to-server sync may not send Origin.
+        if (!origin) return callback(null, true);
+        if (configuredOrigins.includes(origin) ||
+            (process.env.NODE_ENV !== 'production' && isLocalDevelopmentOrigin(origin))) {
+            return callback(null, true);
+        }
+        return callback(new Error('Origin tidak diizinkan oleh kebijakan CORS.'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-sync-secret', 'x-auth-token']
@@ -346,12 +367,12 @@ app.post('/api/auth/login', (req, res) => {
     `).get(cleanId, cleanId, cleanId);
 
     if (student) {
-        let pinValid = false;
-        if (student.parent_pin_hash && bcrypt.compareSync(String(secret), student.parent_pin_hash)) {
-            pinValid = true;
-        } else if (String(secret) === '123456' || String(secret) === '1234') {
-            pinValid = true;
-        }
+        // Hanya PIN yang cocok dengan hash tersimpan yang boleh diterima.
+        // Tidak ada PIN bawaan seperti 123456/1234 karena dapat membuka akun orang lain.
+        const pinValid = Boolean(
+            student.parent_pin_hash &&
+            bcrypt.compareSync(String(secret), student.parent_pin_hash)
+        );
 
         if (pinValid) {
             const studentPayload = {
@@ -1499,6 +1520,15 @@ app.get('/api/student/subject-attendance/:studentId', requireAuth, (req, res) =>
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
     }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'PARENT' && String(req.user.userId) !== String(studentId)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
+    }
 
     // Ambil log presensi mata pelajaran dari teacher_journal_attendance
     const attendances = db.prepare(`
@@ -1558,6 +1588,15 @@ app.get('/api/student/ekskul-attendance/:studentId', requireAuth, (req, res) => 
     const student = db.prepare('SELECT id, division, full_name FROM members WHERE id = ?').get(studentId);
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
+    }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'PARENT' && String(req.user.userId) !== String(studentId)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
     }
 
     // Ekstrakurikuler yang diikuti siswa
