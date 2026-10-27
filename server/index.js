@@ -1416,7 +1416,7 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
         const teachers = db.prepare(`
             SELECT id, 'TEACHER' AS user_type, full_name, nip AS identifier, nip, nik,
                    username, role, assigned_division AS division, phone_number, address, email, birth_date, status,
-                   CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS credential_configured
+                   COALESCE(credentials_ready, 1) AS credential_configured
             FROM teachers ORDER BY full_name COLLATE NOCASE
         `).all();
         const students = db.prepare(`
@@ -1496,7 +1496,7 @@ app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMI
             const collision = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) AND id != ?').get(username, id);
             const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
             if (collision || adminCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
-            db.prepare('UPDATE teachers SET username = ?, password_hash = ? WHERE id = ?')
+            db.prepare('UPDATE teachers SET username = ?, password_hash = ?, credentials_ready = 1 WHERE id = ?')
                 .run(username, bcrypt.hashSync(password, 12), id);
             logAudit(db, req, 'UPDATE_USER_CREDENTIALS', 'teachers', id, 'Admin memperbarui username/password guru');
             return res.json({ success: true, message: 'Kredensial guru berhasil diperbarui.' });
