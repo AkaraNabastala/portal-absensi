@@ -7,7 +7,7 @@ import { randomBytes } from 'node:crypto';
 
 const NEBULA_DB_PATH = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
 
-let lastNebulaDbMtime = 0;
+let lastNebulaDbFingerprint = '';
 
 /**
  * Sinkronisasi instan langsung dari database aplikasi Nebula Presence ke database Portal
@@ -19,10 +19,21 @@ export function syncFromNebulaApp(portalDb, force = false) {
 
     try {
         const fileStat = fs.statSync(NEBULA_DB_PATH);
-        if (!force && fileStat.mtimeMs <= lastNebulaDbMtime) {
+        // SQLite WAL can change while the main database file timestamp stays the same.
+        const walPath = `${NEBULA_DB_PATH}-wal`;
+        let walFingerprint = 'no-wal';
+        try {
+            const walStat = fs.statSync(walPath);
+            walFingerprint = `${walStat.mtimeMs}:${walStat.size}`;
+        } catch {
+            // No WAL file is normal when SQLite has checkpointed all changes.
+        }
+        const sourceFingerprint = `${fileStat.mtimeMs}:${fileStat.size}:${walFingerprint}`;
+        if (!force && sourceFingerprint === lastNebulaDbFingerprint) {
             return { success: true, message: 'Database tidak ada perubahan baru' };
         }
         const nebulaDb = betterSqlite(NEBULA_DB_PATH, { readonly: true });
+        let hadSyncErrors = false;
 
         // 1. Sinkron School Info (Branding, Logo, Nama Sekolah)
         try {
@@ -45,6 +56,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 settingsMap['logo_sekolah'] || null
             );
         } catch (e) {
+            hadSyncErrors = true;
             console.warn('[NebulaDirectSync] Sync settings warning:', e.message);
         }
 
@@ -68,6 +80,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 }
             }
         } catch (e) {
+            hadSyncErrors = true;
             console.warn('[NebulaDirectSync] Sync divisions warning:', e.message);
         }
 
@@ -205,6 +218,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 }
             }
         } catch (e) {
+            hadSyncErrors = true;
             console.warn('[NebulaDirectSync] Sync members warning:', e.message);
         }
 
@@ -254,13 +268,16 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 );
             }
         } catch (e) {
+            hadSyncErrors = true;
             console.warn('[NebulaDirectSync] Sync attendance logs warning:', e.message);
         }
 
         nebulaDb.close();
-        // Mark this database version as processed only after the sync pass finishes.
-        // A failed pass must remain retryable even when the source database is unchanged.
-        lastNebulaDbMtime = fileStat.mtimeMs;
+        // Do not cache a partial pass: retry it on the next scheduler tick.
+        if (hadSyncErrors) {
+            return { success: false, partial: true, message: 'Sinkronisasi langsung belum lengkap; sistem akan mencoba kembali.' };
+        }
+        lastNebulaDbFingerprint = sourceFingerprint;
         return { success: true };
     } catch (err) {
         console.error('[NebulaDirectSync] Fatal Error:', err.message);
