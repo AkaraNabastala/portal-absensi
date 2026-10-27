@@ -2001,7 +2001,8 @@ app.post('/api/sync/push-members', (req, res) => {
     }
     const { members = [], full_snapshot = false } = req.body;
     console.info(`[Portal Sync Members] Payload diterima: ${Array.isArray(members) ? members.length : 0} anggota; full_snapshot=${Boolean(full_snapshot)}.`);
-    const defaultPinHash = bcrypt.hashSync('123456', 10);
+    // Siswa baru tidak diberi PIN bawaan. Admin harus menetapkan PIN pribadi melalui alur pengelolaan akun.
+    // Hash PIN bersama lama (123456) akan dicabut saat anggota berikutnya disinkronkan.
     // Akun guru tanpa kredensial dari aplikasi tidak boleh mendapat sandi default yang diketahui umum.
     const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
@@ -2083,6 +2084,11 @@ app.post('/api/sync/push-members', (req, res) => {
                 syncedIds.push(m.id);
                 syncedTeacherNips.add(String(nip));
             } else if (studentRoles.has(role) && m.nisn) {
+                const existingStudent = db.prepare('SELECT id, parent_pin_hash FROM members WHERE nisn = ? LIMIT 1').get(m.nisn);
+                if (existingStudent?.parent_pin_hash &&
+                    bcrypt.compareSync('123456', existingStudent.parent_pin_hash)) {
+                    db.prepare('UPDATE members SET parent_pin_hash = NULL WHERE id = ?').run(existingStudent.id);
+                }
                 upsertStudent.run(
                     m.rfid_code || m.barcode_id || `BC-${m.id}`,
                     m.nipd || null,
@@ -2092,7 +2098,7 @@ app.post('/api/sync/push-members', (req, res) => {
                     div,
                     m.photo || null,
                     m.phone_number || null,
-                    defaultPinHash
+                    null
                 );
                 syncedIds.push(m.id);
                 syncedStudentIdentities.add(String(m.nisn));
