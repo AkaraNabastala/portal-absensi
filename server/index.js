@@ -1722,6 +1722,12 @@ app.post('/api/sync/handshake', (req, res) => {
 app.post('/api/admin/trigger-direct-sync', requireAuth, requireRole('ADMIN'), (req, res) => {
     try {
         const result = syncFromNebulaApp(db, true);
+        if (!result?.success) {
+            return res.status(503).json({
+                success: false,
+                message: result?.message || result?.error || 'Sinkronisasi langsung gagal. Periksa database Nebula Presence di server ini.'
+            });
+        }
         const updatedSettings = db.prepare(`
             SELECT
                 id,
@@ -1735,12 +1741,13 @@ app.post('/api/admin/trigger-direct-sync', requireAuth, requireRole('ADMIN'), (r
             FROM school_settings
             WHERE id = 1
         `).get();
-        res.json({ 
-            success: true, 
+        res.json({
+            success: true,
             message: result.message || 'Sinkronisasi dengan Nebula Presence selesai.',
             settings: updatedSettings
         });
     } catch (e) {
+        console.error('[Portal Direct Sync] Gagal menjalankan sinkronisasi:', e);
         res.status(500).json({ success: false, message: 'Gagal sinkronisasi: ' + e.message });
     }
 });
