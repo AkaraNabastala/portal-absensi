@@ -18,6 +18,7 @@ export default function AdminUsersTab() {
   const [profileOpen, setProfileOpen] = React.useState({});
   const [importing, setImporting] = React.useState(false);
   const [importSummary, setImportSummary] = React.useState(null);
+  const [pendingImport, setPendingImport] = React.useState(null);
   const importInput = React.useRef(null);
 
   const loadUsers = async () => {
@@ -137,22 +138,37 @@ export default function AdminUsersTab() {
     setImporting(true);
     setNotice(null);
     setImportSummary(null);
+    setPendingImport(null);
     try {
       const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
       const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
       if (!firstSheet) throw new Error('Workbook tidak memiliki lembar kerja.');
       const records = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
       if (!records.length) throw new Error('Lembar kerja tidak berisi baris data.');
+      setPendingImport({ fileName: file.name, records });
+      setNotice({ type: 'success', text: 'File Excel berhasil dibaca. Periksa pratinjau dan konfirmasi sebelum data disimpan.' });
+    } catch (error) {
+      setNotice({ type: 'error', text: error.message || 'File Excel gagal dibaca.' });
+    } finally { setImporting(false); }
+  };
+
+  const confirmImport = async () => {
+    if (!pendingImport || importing) return;
+    setImporting(true);
+    setNotice(null);
+    try {
       const res = await authFetch('/api/admin/users/import', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records })
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ records: pendingImport.records })
       });
       const data = await res.json();
       if (!res.ok || !data.result) throw new Error(data.message || 'Import Excel gagal diproses.');
       setImportSummary(data.result);
       setNotice({ type: data.result.failed ? 'error' : 'success', text: data.message || 'Import selesai.' });
+      setPendingImport(null);
       await loadUsers();
     } catch (error) {
-      setNotice({ type: 'error', text: error.message || 'File Excel gagal dibaca.' });
+      setNotice({ type: 'error', text: error.message || 'Import Excel gagal diproses.' });
     } finally { setImporting(false); }
   };
 
@@ -191,6 +207,11 @@ export default function AdminUsersTab() {
     </section>
 
     {notice && <div role="status" className={`rounded-xl border px-4 py-3 text-sm ${notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{notice.text}</div>}
+    {pendingImport && <section className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-slate-800">
+      <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-extrabold">Pratinjau import Excel</h3><p className="mt-1 text-xs text-slate-600">{pendingImport.fileName} · {pendingImport.records.length} baris. Tidak ada password/PIN yang diimpor.</p></div><div className="flex gap-2"><button type="button" onClick={() => setPendingImport(null)} disabled={importing} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold">Batal</button><button type="button" onClick={confirmImport} disabled={importing} className="rounded-lg bg-sky-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{importing ? 'Menyimpan…' : 'Konfirmasi import'}</button></div></div>
+      <div className="mt-3 overflow-x-auto rounded-lg border border-sky-100 bg-white"><table className="min-w-full text-left text-xs"><thead><tr>{Object.keys(pendingImport.records[0] || {}).slice(0,8).map(key => <th key={key} className="whitespace-nowrap border-b border-slate-100 px-3 py-2 font-bold">{key}</th>)}</tr></thead><tbody>{pendingImport.records.slice(0,5).map((row,index) => <tr key={index}>{Object.keys(pendingImport.records[0] || {}).slice(0,8).map(key => <td key={key} className="max-w-48 truncate border-b border-slate-50 px-3 py-2">{String(row[key] ?? '')}</td>)}</tr>)}</tbody></table></div>
+      <p className="mt-2 text-[11px] text-slate-600">Hanya lima baris pertama ditampilkan di pratinjau; hasil lengkap beserta baris gagal akan dilaporkan setelah import.</p>
+    </section>}
     {importSummary && <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700"><strong>Ringkasan import:</strong> {importSummary.received} baris diterima · {importSummary.created} dibuat · {importSummary.updated} diperbarui · {importSummary.failed} gagal.
       {importSummary.errors?.length > 0 && <ul className="mt-2 max-h-40 list-inside list-disc overflow-auto text-xs text-rose-700">{importSummary.errors.slice(0, 20).map((error, index) => <li key={index}>Baris {error.row} ({error.name}): {error.message}</li>)}</ul>}
     </div>}
