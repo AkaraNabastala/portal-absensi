@@ -7,8 +7,11 @@ import {
     Clock, 
     MapPin, 
     Users,
-    Check
+    Check,
+    X,
+    AlertTriangle
 } from 'lucide-react';
+import { authFetch } from '../../utils/api';
 
 export default function AdminEkskulTab() {
     const [extracurriculars, setExtracurriculars] = useState([]);
@@ -16,6 +19,9 @@ export default function AdminEkskulTab() {
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
+    const [statusType, setStatusType] = useState('success');
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // Form State
     const [name, setName] = useState('');
@@ -30,8 +36,8 @@ export default function AdminEkskulTab() {
         try {
             setLoading(true);
             const [resEkskul, resTeachers] = await Promise.all([
-                fetch('/api/extracurriculars').then(r => r.json()),
-                fetch('/api/admin/teachers').then(r => r.json())
+                authFetch('/api/extracurriculars').then(r => r.json()),
+                authFetch('/api/admin/teachers').then(r => r.json())
             ]);
             if (resEkskul.success) setExtracurriculars(resEkskul.data || []);
             if (resTeachers.success) {
@@ -51,56 +57,52 @@ export default function AdminEkskulTab() {
         loadData();
     }, []);
 
+    const showStatus = (message, type = 'success') => {
+        setStatusType(type);
+        setStatusMessage(message);
+        setTimeout(() => setStatusMessage(''), type === 'error' ? 5000 : 3000);
+    };
+
     const handleCreate = async (e) => {
         e.preventDefault();
-        if (!name || !mentorTeacherId) {
-            alert('Nama ekskul dan guru pembina wajib diisi!');
+        if (!name.trim() || !mentorTeacherId) {
+            showStatus('Nama ekskul dan guru pembina wajib diisi.', 'error');
             return;
         }
-
         try {
-            const res = await fetch('/api/admin/extracurriculars', {
+            const res = await authFetch('/api/admin/extracurriculars', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    name,
-                    mentorTeacherId,
-                    dayName,
-                    startTime,
-                    endTime,
-                    location,
-                    description
-                })
+                body: JSON.stringify({ name: name.trim(), mentorTeacherId, dayName, startTime, endTime, location, description })
             });
             const data = await res.json();
-            if (data.success) {
-                setStatusMessage(`Ekstrakurikuler ${name} berhasil dibuat!`);
-                setTimeout(() => setStatusMessage(''), 3000);
-                setShowModal(false);
-                setName('');
-                setDescription('');
-                loadData();
-            } else {
-                alert(data.message || 'Gagal membuat ekskul.');
-            }
-        } catch (err) {
-            alert('Terjadi kesalahan.');
+            if (!res.ok || !data.success) throw new Error(data.message || 'Gagal membuat ekskul.');
+            showStatus('Ekstrakurikuler ' + name.trim() + ' berhasil dibuat.');
+            setShowModal(false);
+            setName('');
+            setDescription('');
+            await loadData();
+        } catch (error) {
+            showStatus(error.message || 'Terjadi kesalahan saat membuat ekskul.', 'error');
         }
     };
 
-    const handleDelete = async (id, ekskulName) => {
-        if (!confirm(`Hapus kegiatan ekstrakurikuler "${ekskulName}"?`)) return;
+    const handleDelete = (id, ekskulName) => setDeleteTarget({ id, name: ekskulName });
 
+    const confirmDelete = async () => {
+        if (!deleteTarget) return;
+        setDeleting(true);
         try {
-            const res = await fetch(`/api/admin/extracurriculars/${id}`, { method: 'DELETE' });
+            const res = await authFetch('/api/admin/extracurriculars/' + deleteTarget.id, { method: 'DELETE' });
             const data = await res.json();
-            if (data.success) {
-                setStatusMessage(`Ekstrakurikuler "${ekskulName}" berhasil dihapus.`);
-                setTimeout(() => setStatusMessage(''), 3000);
-                loadData();
-            }
-        } catch (err) {
-            alert('Gagal menghapus ekskul.');
+            if (!res.ok || !data.success) throw new Error(data.message || 'Gagal menghapus ekskul.');
+            showStatus('Ekstrakurikuler "' + deleteTarget.name + '" berhasil dihapus.');
+            setDeleteTarget(null);
+            await loadData();
+        } catch (error) {
+            showStatus(error.message || 'Gagal menghapus ekskul.', 'error');
+        } finally {
+            setDeleting(false);
         }
     };
 
@@ -108,8 +110,8 @@ export default function AdminEkskulTab() {
         <div className="space-y-6">
             {/* Notifikasi Status */}
             {statusMessage && (
-                <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs sm:text-sm font-semibold flex items-center gap-2">
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div className={"p-4 rounded-2xl border text-xs sm:text-sm font-semibold flex items-center gap-2 " + (statusType === "error" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800")}>
+                    {statusType === 'error' ? <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> : <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
                     <span>{statusMessage}</span>
                 </div>
             )}
@@ -211,7 +213,7 @@ export default function AdminEkskulTab() {
                                 onClick={() => setShowModal(false)}
                                 className="text-slate-400 hover:text-slate-700 text-lg cursor-pointer"
                             >
-                                ✕
+                                <X className="h-4 w-4" />
                             </button>
                         </div>
 
@@ -321,6 +323,19 @@ export default function AdminEkskulTab() {
                             </div>
                         </form>
                     </div>
+                </div>
+            )}
+            {deleteTarget && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="delete-ekskul-title">
+                    <section className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600"><AlertTriangle className="h-6 w-6" /></div>
+                        <h3 id="delete-ekskul-title" className="mt-4 text-lg font-black text-slate-900">Hapus kegiatan?</h3>
+                        <p className="mt-2 text-sm leading-relaxed text-slate-600">Ekstrakurikuler "{deleteTarget.name}" akan dihapus dari daftar kegiatan.</p>
+                        <div className="mt-6 flex justify-end gap-2">
+                            <button type="button" onClick={() => setDeleteTarget(null)} disabled={deleting} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-600 disabled:opacity-50">Batal</button>
+                            <button type="button" onClick={confirmDelete} disabled={deleting} className="rounded-xl bg-rose-600 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{deleting ? 'Menghapus…' : 'Ya, hapus kegiatan'}</button>
+                        </div>
+                    </section>
                 </div>
             )}
         </div>

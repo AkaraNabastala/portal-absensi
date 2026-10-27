@@ -1,15 +1,238 @@
 @import "tailwindcss";
 
-html, body {
+:root {
+  color-scheme: light;
+  --sky-50: #f4faff;
+  --sky-100: #e4f3ff;
+  --sky-200: #c6e8ff;
+  --sky-400: #58b8f2;
+  --sky-600: #1686cc;
+  --navy-950: #101c30;
+  --navy-900: #172943;
+  --ink: #17263b;
+  --muted: #687b91;
+  --sunset: #f2a65a;
+  --line: #dce8f3;
+  --surface: #ffffff;
+  --canvas: #f4f8fc;
+}
+html, body, #root {
   margin: 0;
   padding: 0;
-  font-family: 'Poppins', sans-serif;
-  background-color: #F8FAFC;
+  min-height: 100%;
+  font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif;
+  background: var(--canvas);
+  color: var(--ink);
   overflow-x: hidden;
   -webkit-tap-highlight-color: transparent;
-  min-height: 100dvh;
+}
+body { min-height: 100dvh; }
+button, a { -webkit-tap-highlight-color: transparent; }
+button { touch-action: manipulation; }
+::selection { background: rgba(88, 184, 242, .28); color: var(--navy-950); }
+.safe-area-bottom { padding-bottom: max(.6rem, env(safe-area-inset-bottom, .6rem)); }
+.custom-scrollbar::-webkit-scrollbar { width: 5px; height: 5px; }
+.custom-scrollbar::-webkit-scrollbar-thumb { background: #c4d4e4; border-radius: 999px; }
+
+/* Sky / Nabastala visual language: midnight navigation, open sky canvas, warm sunset accents. */
+.portal-topbar {
+  color: #f8fbff;
+  background: linear-gradient(112deg, #101c30 0%, #172943 58%, #174a70 100%);
+  border-bottom: 1px solid rgba(88,184,242,.42);
+  box-shadow: 0 12px 34px rgba(16,28,48,.18);
+}
+.portal-topbar .portal-brand-eyebrow { color: #9edcff; }
+.portal-topbar .portal-page-title { color: #ffffff; }
+.portal-topbar .portal-user-chip { background: rgba(255,255,255,.08); border-color: rgba(191,219,254,.22); }
+.portal-topbar .portal-user-name { color: #ffffff; }
+.portal-topbar .portal-user-role { color: #b9cfe2; }
+.portal-topbar .portal-user-icon { color: #dff5ff; background: rgba(56,189,248,.18); }
+.portal-topbar .portal-logout { color: #e2edf8; background: rgba(255,255,255,.08); border-color: rgba(191,219,254,.2); }
+.portal-topbar .portal-logout:hover { color: #fecaca; background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.35); }
+.portal-bottom-nav {
+  color: var(--ink);
+  background: rgba(255,255,255,.96);
+  border: 1px solid #dbe8f4;
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 34px rgba(21, 52, 81, .16);
+  backdrop-filter: blur(18px);
+}
+.portal-bottom-nav .portal-nav-active { background: #e5f4ff; border-color: #c7e7fb; }
+.portal-bottom-nav .portal-nav-item-active { color: #126da7; }
+.portal-bottom-nav .portal-nav-item { color: #74869a; }
+.portal-bottom-nav .portal-nav-item:hover { color: #1d5d85; }
+.portal-mobile-drawer { background: #fff; border-color: #dce8f3; }
+.portal-mobile-drawer .portal-drawer-subtitle { color: #71839a; }
+.portal-mobile-drawer .portal-drawer-icon { background: #e9f6ff; color: #176b9e; }
+.portal-mobile-drawer .portal-drawer-item { background: #f7fbff; border-color: #e2edf6; color: #344a62; }
+.portal-mobile-drawer .portal-drawer-item-active { background: #e8f5ff; border-color: #b7def6; color: #145e8b; }
+.portal-mobile-drawer .portal-drawer-item-active .portal-drawer-item-icon { background: #176b9e; color: white; }
+.portal-mobile-drawer .portal-drawer-item-icon { background: #fff; border-color: #dce8f3; color: #5f748b; }
+
+/* Shared surfaces: calm borders and depth, not heavy gradients. */
+.portal-content { color: var(--ink); }
+.portal-content h1, .portal-content h2, .portal-content h3, .portal-content h4 { letter-spacing: -.025em; }
+.portal-content .bg-white.rounded-xl,
+.portal-content .bg-white.rounded-2xl,
+.portal-content .bg-white.rounded-3xl,
+.portal-content .bg-white.rounded-\[2rem\] {
+  border-color: var(--line);
+  box-shadow: 0 8px 28px -24px rgba(16, 28, 48, .32);
+}
+.portal-content table thead { background: #edf6fd; color: #48627d; }
+.portal-content table th { font-weight: 700; }
+.portal-content table tbody tr { border-color: #e8eff6; }
+.portal-content table tbody tr:hover { background: #f7fbff; }
+.portal-content input:focus, .portal-content select:focus, .portal-content textarea:focus {
+  outline: 2px solid rgba(88,184,242,.2);
+  outline-offset: 1px;
+  border-color: #75c5f4;
+}
+.portal-content button.bg-blue-600,
+.portal-content button.bg-blue-700,
+.portal-content a.bg-blue-600 { box-shadow: 0 4px 12px rgba(22,134,204,.12); }
+.portal-content button.bg-blue-600:hover,
+.portal-content button.bg-blue-700:hover { filter: brightness(1.04); }
+.portal-content .text-blue-600, .portal-content .text-blue-700 { color: #1678b2; }
+.portal-content .bg-blue-50 { background-color: #eaf6ff; }
+.portal-content .border-blue-200 { border-color: #c8e7fa; }
+.portal-content .text-indigo-600, .portal-content .text-indigo-700 { color: #315d87; }
+.portal-content .bg-indigo-50 { background-color: #edf4fc; }
+.portal-content .bg-gradient-to-r.from-blue-600,
+.portal-content .bg-gradient-to-br.from-blue-600 { background-image: linear-gradient(110deg, #176b9e, #369ed8); }
+.portal-content .from-blue-600 { --tw-gradient-from: #176b9e var(--tw-gradient-from-position); --tw-gradient-to: rgb(23 107 158 / 0) var(--tw-gradient-to-position); }
+.portal-content .to-blue-700 { --tw-gradient-to: #258bc4 var(--tw-gradient-to-position); }
+
+#root .Toastify__toast-container { z-index: 9999; }
+.Toastify__toast { border-radius: 14px; font-family: 'Poppins', ui-sans-serif, system-ui, sans-serif; box-shadow: 0 12px 35px rgba(16,28,48,.14); }
+.Toastify__toast--success { border: 1px solid #c8e8d9; }
+.Toastify__toast--error { border: 1px solid #f2d0ca; }
+
+@media (max-width: 767px) {
+  .portal-content { padding-top: 1rem; }
+  .portal-content [class~="rounded-[2rem]"], .portal-content [class~="rounded-[2.5rem]"] { border-radius: 1.15rem; }
+  .portal-topbar .portal-mobile-user { max-width: 44vw; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }
 
-.safe-area-bottom {
-  padding-bottom: max(0.6rem, env(safe-area-inset-bottom, 0.6rem));
+
+/* Time-aware sky identity shared by the desktop and mobile portal. */
+@property --portal-sky-accent {
+  syntax: "<color>";
+  inherits: true;
+  initial-value: #6faed1;
+}
+:root {
+  --portal-sky-canvas: #f4f8fc;
+  --portal-sky-line: #dce8f3;
+  --portal-sky-accent: #83b8d5;
+}
+html[data-sky-phase="morning"] {
+  --portal-sky-canvas: #f5faff;
+  --portal-sky-line: #dceaf6;
+  --portal-sky-accent: #91c4df;
+}
+html[data-sky-phase="day"] {
+  --portal-sky-canvas: #f7fbff;
+  --portal-sky-line: #d9e8f5;
+  --portal-sky-accent: #75b2d5;
+}
+html[data-sky-phase="sunset"] {
+  --portal-sky-canvas: #fbf8f5;
+  --portal-sky-line: #eadfd7;
+  --portal-sky-accent: #c49a83;
+}
+html[data-sky-phase="night"] {
+  --portal-sky-canvas: #f4f7fb;
+  --portal-sky-line: #d8e1ee;
+  --portal-sky-accent: #5c789b;
+}
+.portal-sky-canvas {
+  background-color: var(--portal-sky-canvas) !important;
+  background-image: radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--portal-sky-accent) 10%, transparent) 0, transparent 34rem);
+  transition: background-color .9s ease, --portal-sky-accent 1.8s ease;
+}
+.portal-topbar {
+  background: linear-gradient(112deg, #10243b 0%, #1d4263 58%, var(--portal-sky-accent) 100%) !important;
+  border-bottom-color: var(--portal-sky-line);
+  transition: border-color .9s ease, --portal-sky-accent 1.8s ease;
+}
+.portal-bottom-nav { border-color: var(--portal-sky-line); }
+.portal-content table thead { border-bottom: 1px solid var(--portal-sky-line); }
+@media (prefers-reduced-motion: reduce) {
+  .portal-sky-canvas, .portal-topbar { transition: none !important; }
+}
+
+
+/* Mobile navigation is a stable, edge-to-edge dock and respects device safe areas. */
+@media (max-width: 767px) {
+  .portal-bottom-nav {
+    border-radius: 1.25rem 1.25rem 0 0;
+    padding-bottom: max(.65rem, env(safe-area-inset-bottom, .65rem));
+    box-shadow: 0 -8px 28px rgba(21, 52, 81, .12);
+  }
+  .portal-content { padding-bottom: .5rem; }
+}
+
+/* Very soft sun/moon atmosphere behind portal cards. */
+:root { --portal-sky-atmosphere: radial-gradient(circle at 84% 13%, rgba(255, 219, 125, .20) 0 3.5rem, transparent 3.6rem), radial-gradient(circle at 14% 22%, rgba(125, 190, 235, .13), transparent 22rem); }
+html[data-sky-phase="morning"] { --portal-sky-atmosphere: radial-gradient(circle at 84% 13%, rgba(255, 214, 119, .22) 0 3rem, transparent 3.1rem), radial-gradient(circle at 18% 25%, rgba(125, 190, 235, .14), transparent 22rem); }
+html[data-sky-phase="day"] { --portal-sky-atmosphere: radial-gradient(circle at 86% 12%, rgba(255, 223, 145, .19) 0 3.6rem, transparent 3.7rem), radial-gradient(circle at 12% 28%, rgba(88, 169, 220, .10), transparent 24rem); }
+html[data-sky-phase="sunset"] { --portal-sky-atmosphere: radial-gradient(circle at 84% 14%, rgba(237, 156, 112, .20) 0 3.5rem, transparent 3.6rem), radial-gradient(circle at 10% 30%, rgba(112, 163, 205, .13), transparent 24rem); }
+html[data-sky-phase="night"] { --portal-sky-atmosphere: radial-gradient(circle at 82% 14%, rgba(180, 203, 239, .14) 0 2.7rem, transparent 2.8rem), radial-gradient(circle at 12% 18%, rgba(255,255,255,.42) 0 1px, transparent 1.8px), radial-gradient(circle at 24% 31%, rgba(255,255,255,.32) 0 1px, transparent 1.8px), radial-gradient(circle at 58% 13%, rgba(255,255,255,.30) 0 1px, transparent 1.8px), radial-gradient(circle at 68% 27%, rgba(255,255,255,.36) 0 1px, transparent 1.8px), radial-gradient(circle at 43% 42%, rgba(255,255,255,.26) 0 1px, transparent 1.8px), radial-gradient(circle at 12% 18%, rgba(77, 121, 179, .13), transparent 24rem), radial-gradient(circle at 70% 35%, rgba(105, 144, 198, .10), transparent 18rem); }
+.portal-sky-canvas { position: relative; isolation: isolate; }
+.portal-sky-canvas::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--portal-sky-atmosphere); opacity: .85; }
+
+
+/* Visible but low-contrast time-of-day atmosphere, always behind interactive content. */
+html[data-sky-phase="morning"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(255, 207, 112, .25) 0 3.8rem, transparent 3.9rem),
+    radial-gradient(ellipse at 10% 30%, rgba(244, 198, 150, .18), transparent 26rem);
+}
+html[data-sky-phase="day"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(255, 222, 143, .22) 0 4rem, transparent 4.1rem),
+    radial-gradient(ellipse at 12% 28%, rgba(88, 169, 220, .16), transparent 27rem);
+}
+html[data-sky-phase="sunset"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(236, 153, 112, .24) 0 3.8rem, transparent 3.9rem),
+    radial-gradient(ellipse at 12% 32%, rgba(195, 139, 133, .16), transparent 27rem);
+}
+html[data-sky-phase="night"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(159, 187, 228, .20) 0 3.2rem, transparent 3.3rem),
+    radial-gradient(circle at 12% 18%, rgba(84, 117, 162, .22) 0 1px, transparent 2px),
+    radial-gradient(circle at 24% 31%, rgba(84, 117, 162, .18) 0 1px, transparent 2px),
+    radial-gradient(circle at 58% 13%, rgba(84, 117, 162, .18) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 27%, rgba(84, 117, 162, .20) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 14% 30%, rgba(98, 132, 179, .12), transparent 26rem);
+}
+.portal-sky-canvas {
+  position: relative;
+  isolation: isolate;
+  background-image: radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--portal-sky-accent) 16%, transparent) 0, transparent 34rem);
+}
+.portal-sky-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--portal-sky-atmosphere);
+  opacity: .9;
+  transition: opacity 1.2s ease;
+}
+.portal-topbar {
+  background-image: linear-gradient(112deg,
+    #101c30 0%,
+    color-mix(in srgb, var(--portal-sky-accent) 26%, #172943) 58%,
+    color-mix(in srgb, var(--portal-sky-accent) 76%, #174a70) 100%) !important;
+  transition: background-image 1.2s ease, border-color 1.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-sky-canvas::before, .portal-topbar { transition: none !important; }
 }
