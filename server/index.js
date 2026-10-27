@@ -1419,7 +1419,7 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
                    COALESCE(NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
                    nisn, nipd, NULL AS username, role, division, phone_number, status,
                    CASE WHEN parent_pin_hash IS NOT NULL AND parent_pin_hash != '' THEN 1 ELSE 0 END AS credential_configured
-            FROM members ORDER BY full_name COLLATE NOCASE
+            FROM members WHERE lower(role) IN ('siswa','student','murid') ORDER BY full_name COLLATE NOCASE
         `).all();
         return res.json({ success: true, data: [...teachers, ...students] });
     } catch (error) {
@@ -1442,14 +1442,15 @@ app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMI
             const teacher = db.prepare('SELECT id, full_name FROM teachers WHERE id = ?').get(id);
             if (!teacher) return res.status(404).json({ success: false, message: 'Akun guru tidak ditemukan.' });
             const collision = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) AND id != ?').get(username, id);
-            if (collision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun guru lain.' });
+            const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
+            if (collision || adminCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
             db.prepare('UPDATE teachers SET username = ?, password_hash = ? WHERE id = ?')
                 .run(username, bcrypt.hashSync(password, 12), id);
             logAudit(db, req, 'UPDATE_USER_CREDENTIALS', 'teachers', id, 'Admin memperbarui username/password guru');
             return res.json({ success: true, message: 'Kredensial guru berhasil diperbarui.' });
         }
         if (type === 'STUDENT') {
-            if (!/^\\d{6,12}$/.test(password) || ['123456','654321','000000','111111','222222','333333','444444','555555','666666','777777','888888','999999'].includes(password)) {
+            if (!/^\d{6,12}$/.test(password) || ['123456','654321','000000','111111','222222','333333','444444','555555','666666','777777','888888','999999'].includes(password)) {
                 return res.status(400).json({ success: false, message: 'PIN siswa harus 6–12 digit dan tidak boleh mudah ditebak.' });
             }
             const student = db.prepare("SELECT id, full_name, role FROM members WHERE id = ? AND lower(role) IN ('siswa','student','murid')").get(id);
@@ -1829,12 +1830,10 @@ app.get('/api/admin/settings', requireAuth, requireRole('ADMIN'), (req, res) => 
 
 // Update Pengaturan Admin (Dengan Password Hashing yang Benar)
 app.post('/api/admin/update-settings', requireAuth, requireRole('ADMIN'), (req, res) => {
-    const { schoolName, schoolAddress, academicYear, syncSecret, newAdminPassword } = req.body;
+    const { schoolName, schoolAddress, academicYear, syncSecret } = req.body;
 
-    let passHash = null;
-    if (newAdminPassword && newAdminPassword.trim().length >= 6) {
-        passHash = bcrypt.hashSync(newAdminPassword.trim(), 10);
-    }
+    // Kredensial admin hanya boleh diubah melalui endpoint account-credentials
+    // yang memverifikasi password saat ini; pengaturan sekolah tidak boleh menjadi jalur bypass.
 
     db.prepare(`
         UPDATE school_settings
@@ -1842,10 +1841,9 @@ app.post('/api/admin/update-settings', requireAuth, requireRole('ADMIN'), (req, 
             school_address = COALESCE(?, school_address),
             academic_year = COALESCE(?, academic_year),
             sync_secret = COALESCE(?, sync_secret),
-            admin_password_hash = COALESCE(?, admin_password_hash),
             updated_at = CURRENT_TIMESTAMP
         WHERE id = 1
-    `).run(schoolName || null, schoolAddress || null, academicYear || null, syncSecret || null, passHash);
+    `).run(schoolName || null, schoolAddress || null, academicYear || null, syncSecret || null);
 
     logAudit(db, req, 'UPDATE_SETTINGS', 'school_settings', 1, 'Pengaturan sekolah diperbarui');
     res.json({ success: true, message: 'Pengaturan sekolah berhasil disimpan.' });
