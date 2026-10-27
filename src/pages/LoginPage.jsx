@@ -9,6 +9,7 @@ export default function LoginPage({ onLoginSuccess }) {
     const [confirmSecret, setConfirmSecret] = useState('');
     const [setupKey, setSetupKey] = useState('');
     const [setupRequired, setSetupRequired] = useState(false);
+    const [setupKeyRequired, setSetupKeyRequired] = useState(false);
     const [showSecret, setShowSecret] = useState(false);
     const [rememberMe, setRememberMe] = useState(false);    const [loading, setLoading] = useState(false);
 
@@ -35,7 +36,10 @@ export default function LoginPage({ onLoginSuccess }) {
 
         fetch('/api/auth/bootstrap-status')
             .then(res => res.json())
-            .then(res => setSetupRequired(Boolean(res.success && res.setupRequired)))
+            .then(res => {
+                setSetupRequired(Boolean(res.success && res.setupRequired));
+                setSetupKeyRequired(Boolean(res.success && res.setupKeyRequired));
+            })
             .catch(() => { });
     }, []);
 
@@ -166,7 +170,7 @@ export default function LoginPage({ onLoginSuccess }) {
                     </div>
 <form onSubmit={handleSubmit} className="space-y-4">
 
-                        {setupRequired && (
+                        {setupRequired && setupKeyRequired && (
                             <div>
                                 <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">Kunci Setup Awal</label>
                                 <div className="relative group">
