@@ -13,6 +13,8 @@ export default function AdminUsersTab() {
   const [notice, setNotice] = React.useState(null);
   const [adminForm, setAdminForm] = React.useState({ username: '', currentPassword: '', newPassword: '' });
   const [forms, setForms] = React.useState({});
+  const [profileForms, setProfileForms] = React.useState({});
+  const [profileOpen, setProfileOpen] = React.useState({});
 
   const loadUsers = async () => {
     setLoading(true);
@@ -24,7 +26,22 @@ export default function AdminUsersTab() {
       setForms(prev => {
         const next = { ...prev };
         for (const user of (data.data || [])) {
-          if (!next[`${user.user_type}-${user.id}`]) next[`${user.user_type}-${user.id}`] = { username: user.username || user.identifier || '', secret: '' };
+          const key = `${user.user_type}-${user.id}`;
+          next[key] = { username: user.username || user.identifier || '', secret: prev[key]?.secret || '' };
+        }
+        return next;
+      });
+      setProfileForms(prev => {
+        const next = { ...prev };
+        for (const user of (data.data || [])) {
+          const key = `${user.user_type}-${user.id}`;
+          next[key] = {
+            full_name: user.full_name || '', nip: user.nip || '', nik: user.nik || '',
+            nisn: user.nisn || '', nipd: user.nipd || '', barcode_id: user.barcode_id || '',
+            gender: user.gender || 'L', division: user.division || '', address: user.address || '',
+            email: user.email || '', birth_date: user.birth_date || '', phone_number: user.phone_number || '',
+            parent_name: user.parent_name || '', parent_phone: user.parent_phone || ''
+          };
         }
         return next;
       });
@@ -84,6 +101,26 @@ export default function AdminUsersTab() {
     } finally { setBusy(''); }
   };
 
+  const updateProfileForm = (key, field, value) => setProfileForms(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } }));
+
+  const saveProfile = async user => {
+    const key = `${user.user_type}-${user.id}`;
+    setBusy(`profile-${key}`);
+    setNotice(null);
+    try {
+      const res = await authFetch(`/api/admin/users/${user.user_type}/${user.id}/profile`, {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(profileForms[key] || {})
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Biodata gagal disimpan.');
+      setNotice({ type: 'success', text: `${user.full_name}: ${data.message}` });
+      await loadUsers();
+      setProfileOpen(prev => ({ ...prev, [key]: false }));
+    } catch (error) {
+      setNotice({ type: 'error', text: error.message || 'Biodata gagal disimpan.' });
+    } finally { setBusy(''); }
+  };
+
   const filtered = users.filter(user => {
     const matchesKind = kind === 'ALL' || user.user_type === kind;
     const text = [user.full_name, user.identifier, user.username, user.nipd, user.nisn, user.division, user.role].filter(Boolean).join(' ').toLowerCase();
@@ -131,6 +168,30 @@ export default function AdminUsersTab() {
               <label className="text-xs font-bold text-slate-600">{teacher ? 'Password baru (min. 12 karakter)' : 'PIN baru (6–12 digit)'}<input className={inputClass + ' mt-1'} type="password" inputMode={teacher ? 'text' : 'numeric'} minLength={teacher ? 12 : 6} maxLength={teacher ? 200 : 12} value={form.secret || ''} onChange={e => updateForm(key, 'secret', e.target.value)} placeholder={teacher ? 'Masukkan password baru' : 'Masukkan PIN pribadi'} /></label>
               <button disabled={busy === key || !form.secret || (teacher && !form.username)} onClick={() => saveCredentials(user)} className="self-end inline-flex items-center justify-center gap-2 rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-bold text-white disabled:cursor-not-allowed disabled:opacity-40"><KeyRound size={15} />{busy === key ? 'Menyimpan…' : 'Atur kredensial'}</button>
             </div>
+            <button type="button" onClick={() => setProfileOpen(prev => ({ ...prev, [key]: !prev[key] }))} className="mt-3 rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50">{profileOpen[key] ? 'Tutup biodata' : 'Edit biodata lengkap'}</button>
+            {profileOpen[key] && <div className="mt-3 rounded-xl bg-slate-50 p-3 sm:p-4">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <label className="text-xs font-bold text-slate-600">Nama lengkap<input className={inputClass + ' mt-1'} required value={profileForms[key]?.full_name || ''} onChange={e => updateProfileForm(key, 'full_name', e.target.value)} /></label>
+                <label className="text-xs font-bold text-slate-600">Email<input className={inputClass + ' mt-1'} type="email" value={profileForms[key]?.email || ''} onChange={e => updateProfileForm(key, 'email', e.target.value)} /></label>
+                <label className="text-xs font-bold text-slate-600">Tanggal lahir<input className={inputClass + ' mt-1'} type="date" value={profileForms[key]?.birth_date || ''} onChange={e => updateProfileForm(key, 'birth_date', e.target.value)} /></label>
+                <label className="text-xs font-bold text-slate-600">Nomor telepon<input className={inputClass + ' mt-1'} value={profileForms[key]?.phone_number || ''} onChange={e => updateProfileForm(key, 'phone_number', e.target.value)} /></label>
+                <label className="text-xs font-bold text-slate-600 sm:col-span-2">Alamat lengkap<textarea className={inputClass + ' mt-1'} rows={2} value={profileForms[key]?.address || ''} onChange={e => updateProfileForm(key, 'address', e.target.value)} /></label>
+                {teacher ? <>
+                  <label className="text-xs font-bold text-slate-600">NIP / identitas guru<input className={inputClass + ' mt-1'} required value={profileForms[key]?.nip || ''} onChange={e => updateProfileForm(key, 'nip', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600">NIK<input className={inputClass + ' mt-1'} value={profileForms[key]?.nik || ''} onChange={e => updateProfileForm(key, 'nik', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600 sm:col-span-2">Kelas binaan<input className={inputClass + ' mt-1'} value={profileForms[key]?.division || ''} onChange={e => updateProfileForm(key, 'division', e.target.value)} /></label>
+                </> : <>
+                  <label className="text-xs font-bold text-slate-600">NISN<input className={inputClass + ' mt-1'} value={profileForms[key]?.nisn || ''} onChange={e => updateProfileForm(key, 'nisn', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600">NIPD<input className={inputClass + ' mt-1'} value={profileForms[key]?.nipd || ''} onChange={e => updateProfileForm(key, 'nipd', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600">RFID / barcode<input className={inputClass + ' mt-1'} value={profileForms[key]?.barcode_id || ''} onChange={e => updateProfileForm(key, 'barcode_id', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600">Jenis kelamin<select className={inputClass + ' mt-1'} value={profileForms[key]?.gender || 'L'} onChange={e => updateProfileForm(key, 'gender', e.target.value)}><option value="L">Laki-laki</option><option value="P">Perempuan</option></select></label>
+                  <label className="text-xs font-bold text-slate-600">Kelas<input className={inputClass + ' mt-1'} required value={profileForms[key]?.division || ''} onChange={e => updateProfileForm(key, 'division', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600">Nama orang tua/wali<input className={inputClass + ' mt-1'} value={profileForms[key]?.parent_name || ''} onChange={e => updateProfileForm(key, 'parent_name', e.target.value)} /></label>
+                  <label className="text-xs font-bold text-slate-600">Telepon orang tua/wali<input className={inputClass + ' mt-1'} value={profileForms[key]?.parent_phone || ''} onChange={e => updateProfileForm(key, 'parent_phone', e.target.value)} /></label>
+                </>}
+              </div>
+              <button type="button" disabled={busy === `profile-${key}`} onClick={() => saveProfile(user)} className="mt-3 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy === `profile-${key}` ? 'Menyimpan biodata…' : 'Simpan biodata'}</button>
+            </div>}
           </article>;
         })}</div>}
     </section>
