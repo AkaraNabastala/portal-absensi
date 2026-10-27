@@ -4,6 +4,7 @@ import AdminSchedulesTab from './AdminSchedulesTab';
 import AdminJournalsTab from './AdminJournalsTab';
 import AdminEkskulTab from './AdminEkskulTab';
 import AdminSyncTab from './AdminSyncTab';
+import AdminUsersTab from './AdminUsersTab';
 import { authFetch } from '../../utils/api';
 
 function TeacherSubstituteTab() {
@@ -103,6 +104,8 @@ export default function AdminDashboard({
 
     return (
         <div className="space-y-6">
+            {activeTab === 'users' && <AdminUsersTab />}
+
             {activeTab === 'overview' && (
                 <AdminOverviewTab
                     settings={settings}
