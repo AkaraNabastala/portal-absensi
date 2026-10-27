@@ -184,3 +184,55 @@ html[data-sky-phase="sunset"] { --portal-sky-atmosphere: radial-gradient(circle 
 html[data-sky-phase="night"] { --portal-sky-atmosphere: radial-gradient(circle at 82% 14%, rgba(180, 203, 239, .14) 0 2.7rem, transparent 2.8rem), radial-gradient(circle at 12% 18%, rgba(255,255,255,.42) 0 1px, transparent 1.8px), radial-gradient(circle at 24% 31%, rgba(255,255,255,.32) 0 1px, transparent 1.8px), radial-gradient(circle at 58% 13%, rgba(255,255,255,.30) 0 1px, transparent 1.8px), radial-gradient(circle at 68% 27%, rgba(255,255,255,.36) 0 1px, transparent 1.8px), radial-gradient(circle at 43% 42%, rgba(255,255,255,.26) 0 1px, transparent 1.8px), radial-gradient(circle at 12% 18%, rgba(77, 121, 179, .13), transparent 24rem), radial-gradient(circle at 70% 35%, rgba(105, 144, 198, .10), transparent 18rem); }
 .portal-sky-canvas { position: relative; isolation: isolate; }
 .portal-sky-canvas::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none; background-image: var(--portal-sky-atmosphere); opacity: .85; }
+
+
+/* Visible but low-contrast time-of-day atmosphere, always behind interactive content. */
+html[data-sky-phase="morning"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(255, 207, 112, .25) 0 3.8rem, transparent 3.9rem),
+    radial-gradient(ellipse at 10% 30%, rgba(244, 198, 150, .18), transparent 26rem);
+}
+html[data-sky-phase="day"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(255, 222, 143, .22) 0 4rem, transparent 4.1rem),
+    radial-gradient(ellipse at 12% 28%, rgba(88, 169, 220, .16), transparent 27rem);
+}
+html[data-sky-phase="sunset"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(236, 153, 112, .24) 0 3.8rem, transparent 3.9rem),
+    radial-gradient(ellipse at 12% 32%, rgba(195, 139, 133, .16), transparent 27rem);
+}
+html[data-sky-phase="night"] {
+  --portal-sky-atmosphere:
+    radial-gradient(circle at 86% 12%, rgba(159, 187, 228, .20) 0 3.2rem, transparent 3.3rem),
+    radial-gradient(circle at 12% 18%, rgba(84, 117, 162, .22) 0 1px, transparent 2px),
+    radial-gradient(circle at 24% 31%, rgba(84, 117, 162, .18) 0 1px, transparent 2px),
+    radial-gradient(circle at 58% 13%, rgba(84, 117, 162, .18) 0 1px, transparent 2px),
+    radial-gradient(circle at 68% 27%, rgba(84, 117, 162, .20) 0 1px, transparent 2px),
+    radial-gradient(ellipse at 14% 30%, rgba(98, 132, 179, .12), transparent 26rem);
+}
+.portal-sky-canvas {
+  position: relative;
+  isolation: isolate;
+  background-image: radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--portal-sky-accent) 16%, transparent) 0, transparent 34rem);
+}
+.portal-sky-canvas::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: var(--portal-sky-atmosphere);
+  opacity: .9;
+  transition: opacity 1.2s ease;
+}
+.portal-topbar {
+  background-image: linear-gradient(112deg,
+    #101c30 0%,
+    color-mix(in srgb, var(--portal-sky-accent) 26%, #172943) 58%,
+    color-mix(in srgb, var(--portal-sky-accent) 76%, #174a70) 100%) !important;
+  transition: background-image 1.2s ease, border-color 1.2s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .portal-sky-canvas::before, .portal-topbar { transition: none !important; }
+}
