@@ -25,7 +25,9 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const [savingParentPin, setSavingParentPin] = useState(false);
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
-    const gatewayUrl = `${origin}/api/sync`;
+    const gatewayUrl = typeof window !== 'undefined' && ['5173', '5174'].includes(window.location.port)
+        ? `${window.location.protocol}//${window.location.hostname}:5000/api/sync`
+        : `${origin}/api/sync`;
 
     const loadLiveSettings = async () => {
         try {
