@@ -1713,6 +1713,26 @@ app.post('/api/admin/cleanup-demo-data', requireAuth, requireRole('ADMIN'), (req
     }
 });
 
+// Admin: tetapkan PIN pribadi untuk akun siswa/wali tanpa PIN bawaan.
+app.post('/api/admin/members/:id/parent-pin', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    const pin = String(req.body?.pin || '');
+    if (!/^\d{6,12}$/.test(pin) || ['123456', '654321', '1234567890', '000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999'].includes(pin)) {
+        return res.status(400).json({ success: false, message: 'PIN harus terdiri dari 6 sampai 12 digit dan tidak boleh mudah ditebak.' });
+    }
+    const member = db.prepare("SELECT id, full_name, role FROM members WHERE id = ? AND status = 'ACTIVE'").get(req.params.id);
+    if (!member || !['siswa', 'student', 'murid'].includes(String(member.role || '').trim().toLowerCase())) {
+        return res.status(404).json({ success: false, message: 'Akun siswa aktif tidak ditemukan.' });
+    }
+    try {
+        const pinHash = await bcrypt.hash(pin, 12);
+        db.prepare('UPDATE members SET parent_pin_hash = ? WHERE id = ?').run(pinHash, member.id);
+        logAudit(db, req, 'SET_PARENT_PIN', 'members', member.id, 'Admin menetapkan PIN baru untuk akun siswa/wali');
+        return res.json({ success: true, message: 'PIN siswa/wali berhasil diperbarui.' });
+    } catch (error) {
+        console.error('[Parent PIN Update] Gagal memperbarui PIN:', error.message);
+        return res.status(500).json({ success: false, message: 'Gagal memperbarui PIN.' });
+    }
+});
 // Ambil Pengaturan Sekolah & Sync Token untuk Admin
 app.get('/api/admin/settings', requireAuth, requireRole('ADMIN'), (req, res) => {
     const settings = db.prepare('SELECT id, school_name, school_address, academic_year, license_status, sync_secret, last_sync_at FROM school_settings WHERE id = 1').get();
