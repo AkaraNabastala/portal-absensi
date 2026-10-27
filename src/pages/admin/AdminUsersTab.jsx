@@ -130,7 +130,7 @@ export default function AdminUsersTab() {
     const file = event.target.files?.[0];
     event.target.value = '';
     if (!file) return;
-    if (!/\\.(xlsx|xls)$/i.test(file.name)) {
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
       setNotice({ type: 'error', text: 'Pilih file Excel .xlsx atau .xls.' });
       return;
     }
