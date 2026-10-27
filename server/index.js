@@ -1910,7 +1910,7 @@ app.post('/api/sync/push-members', (req, res) => {
     if (!checkSyncAuth(req)) {
         return res.status(401).json({ success: false, message: 'Sync secret tidak valid.' });
     }
-    const { members = [] } = req.body;
+    const { members = [], full_snapshot = false } = req.body;
     const defaultPinHash = bcrypt.hashSync('123456', 10);
     // Akun guru tanpa kredensial dari aplikasi tidak boleh mendapat sandi default yang diketahui umum.
     const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
@@ -1950,7 +1950,11 @@ app.post('/api/sync/push-members', (req, res) => {
     const studentRoles = new Set(['siswa', 'student', 'murid']);
 
     const syncedIds = [];
+    const syncedStudentIdentities = new Set();
+    const syncedTeacherNips = new Set();
     let skipped = 0;
+    let deactivatedStudents = 0;
+    let deactivatedTeachers = 0;
     const tx = db.transaction(() => {
         for (const m of members) {
             const role = String(m.role || '').trim().toLowerCase();
@@ -1982,6 +1986,7 @@ app.post('/api/sync/push-members', (req, res) => {
                     hasLoginCredentials ? 1 : 0
                 );
                 syncedIds.push(m.id);
+                syncedTeacherNips.add(String(nip));
             } else if (studentRoles.has(role) && m.nisn) {
                 upsertStudent.run(
                     m.rfid_code || m.barcode_id || `BC-${m.id}`,
@@ -1995,8 +2000,29 @@ app.post('/api/sync/push-members', (req, res) => {
                     defaultPinHash
                 );
                 syncedIds.push(m.id);
+                syncedStudentIdentities.add(String(m.nisn));
             } else {
                 skipped++;
+            }
+        }
+
+        // Pada sinkronisasi snapshot penuh, nonaktifkan identitas yang sudah tidak ada
+        // di desktop. Riwayat presensi tetap dipertahankan, tidak dihapus permanen.
+        if (full_snapshot && skipped === 0) {
+            const currentStudents = db.prepare("SELECT id, nisn FROM members WHERE status = 'ACTIVE'").all();
+            const deactivateStudent = db.prepare("UPDATE members SET status = 'INACTIVE' WHERE id = ?");
+            for (const student of currentStudents) {
+                if (!syncedStudentIdentities.has(String(student.nisn))) {
+                    deactivatedStudents += deactivateStudent.run(student.id).changes;
+                }
+            }
+
+            const currentTeachers = db.prepare("SELECT id, nip FROM teachers WHERE status = 'ACTIVE'").all();
+            const deactivateTeacher = db.prepare("UPDATE teachers SET status = 'INACTIVE' WHERE id = ?");
+            for (const teacher of currentTeachers) {
+                if (!syncedTeacherNips.has(String(teacher.nip))) {
+                    deactivatedTeachers += deactivateTeacher.run(teacher.id).changes;
+                }
             }
         }
     });
@@ -2006,9 +2032,13 @@ app.post('/api/sync/push-members', (req, res) => {
         synced: syncedIds.length,
         skipped,
         synced_ids: syncedIds,
+        full_snapshot: Boolean(full_snapshot),
+        reconciled: Boolean(full_snapshot && skipped === 0),
+        deactivated_students: deactivatedStudents,
+        deactivated_teachers: deactivatedTeachers,
         message: skipped === 0
-            ? `${syncedIds.length} data anggota tersinkronkan.`
-            : `${syncedIds.length} data anggota tersinkronkan; ${skipped} dilewati karena identitas siswa tidak lengkap.`
+            ? `${syncedIds.length} data anggota tersinkronkan${full_snapshot ? `; ${deactivatedStudents} siswa dan ${deactivatedTeachers} guru yang sudah tidak ada di desktop dinonaktifkan` : ''}.`
+            : `${syncedIds.length} data anggota tersinkronkan; ${skipped} data dilewati. Rekonsiliasi tidak dijalankan agar data yang belum cocok tidak dinonaktifkan.`
     });
 });
 
