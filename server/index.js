@@ -270,7 +270,7 @@ app.post('/api/auth/login', (req, res) => {
                     school_address: schoolSettings?.school_address,
                     academic_year: schoolSettings?.academic_year || '2026/2027',
                     license_status: schoolSettings?.license_status || 'ACTIVE',
-                    sync_secret: schoolSettings?.sync_secret || '',
+                    // Secret sinkronisasi hanya diambil melalui endpoint pengaturan admin, bukan disimpan di data sesi frontend.
                     last_sync_at: schoolSettings?.last_sync_at
                 } 
             }
