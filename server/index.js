@@ -1433,6 +1433,69 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
     }
 });
 
+// Import workbook Excel dari halaman Users. Tidak menerima atau mengekspor password/PIN.
+app.post('/api/admin/users/import', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const records = Array.isArray(req.body?.records) ? req.body.records : [];
+    if (!records.length) return res.status(400).json({ success: false, message: 'Workbook tidak berisi baris data.' });
+    if (records.length > 1000) return res.status(413).json({ success: false, message: 'Maksimal 1.000 baris per import.' });
+    const clean = value => value == null ? '' : String(value).trim();
+    const result = { received: records.length, created: 0, updated: 0, failed: 0, errors: [] };
+    records.forEach((record, index) => {
+        const rowNumber = index + 2;
+        try {
+            const type = clean(record.user_type || record.type).toUpperCase();
+            const fullName = clean(record.full_name || record.nama);
+            if (fullName.length < 2) throw new Error('Nama lengkap wajib diisi.');
+            if (type === 'TEACHER' || type === 'GURU' || type === 'TENDIK') {
+                const nip = clean(record.nip || record.identifier);
+                if (!nip) throw new Error('NIP/identitas guru wajib diisi.');
+                const existing = db.prepare('SELECT id FROM teachers WHERE nip = ?').get(nip);
+                if (existing) {
+                    db.prepare(`UPDATE teachers SET full_name = ?, nik = ?, assigned_division = ?, phone_number = ?, address = ?, email = ?, birth_date = ? WHERE id = ?`)
+                        .run(fullName, clean(record.nik), clean(record.division), clean(record.phone_number), clean(record.address), clean(record.email), clean(record.birth_date), existing.id);
+                    result.updated++;
+                } else {
+                    const username = clean(record.username) || nip;
+                    const collision = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?)').get(username);
+                    const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
+                    if (collision || adminCollision) throw new Error('Username awal sudah digunakan; isi username lain lalu import ulang.');
+                    const unusableInitialHash = bcrypt.hashSync(randomBytes(32).toString('hex'), 12);
+                    db.prepare(`INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, address, email, birth_date, credentials_ready)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0)`)
+                        .run(nip, clean(record.nik), username, unusableInitialHash, fullName, clean(record.division), clean(record.role) || 'GURU', clean(record.phone_number), clean(record.address), clean(record.email), clean(record.birth_date));
+                    result.created++;
+                }
+            } else if (type === 'STUDENT' || type === 'SISWA' || type === 'MURID') {
+                const nisn = clean(record.nisn);
+                const nipd = clean(record.nipd);
+                const barcode = clean(record.barcode_id || record.rfid);
+                const division = clean(record.division || record.kelas);
+                if (!nisn) throw new Error('NISN wajib diisi sesuai skema database Portal saat ini.');
+                if (!division) throw new Error('Kelas siswa wajib diisi.');
+                const existing = db.prepare(`SELECT id FROM members WHERE nisn = ? OR (? != '' AND nipd = ?) OR (? != '' AND barcode_id = ?) LIMIT 1`).get(nisn, nipd, nipd, barcode, barcode);
+                if (existing) {
+                    db.prepare(`UPDATE members SET full_name = ?, nisn = ?, nipd = COALESCE(NULLIF(?, ''), nipd), barcode_id = COALESCE(NULLIF(?, ''), barcode_id), gender = ?, division = ?, phone_number = ?, address = ?, email = ?, birth_date = ?, parent_name = ?, parent_phone = ? WHERE id = ?`)
+                        .run(fullName, nisn, nipd, barcode, clean(record.gender) || 'L', division, clean(record.phone_number), clean(record.address), clean(record.email), clean(record.birth_date), clean(record.parent_name), clean(record.parent_phone), existing.id);
+                    result.updated++;
+                } else {
+                    db.prepare(`INSERT INTO members (barcode_id, nipd, nisn, full_name, gender, division, parent_pin_hash, parent_name, parent_phone, phone_number, role, address, email, birth_date)
+                        VALUES (?, ?, ?, ?, ?, ?, NULL, ?, ?, ?, 'siswa', ?, ?, ?)`)
+                        .run(barcode || null, nipd || null, nisn, fullName, clean(record.gender) || 'L', division, clean(record.parent_name), clean(record.parent_phone), clean(record.phone_number), clean(record.address), clean(record.email), clean(record.birth_date));
+                    result.created++;
+                }
+            } else {
+                throw new Error('user_type harus TEACHER atau STUDENT.');
+            }
+        } catch (error) {
+            result.failed++;
+            result.errors.push({ row: rowNumber, name: clean(record.full_name || record.nama) || '(tanpa nama)', message: /UNIQUE constraint failed/i.test(error.message) ? 'Identitas sudah dipakai pengguna lain.' : error.message });
+        }
+    });
+    logAudit(db, req, 'IMPORT_USERS', 'users', null, `Import Excel: diterima=${result.received}, dibuat=${result.created}, diperbarui=${result.updated}, gagal=${result.failed}`);
+    console.info(`[USERS][IMPORT] reqId=${req.requestId || '-'} received=${result.received} created=${result.created} updated=${result.updated} failed=${result.failed}`);
+    return res.json({ success: result.failed === 0, message: `Import selesai: ${result.created} dibuat, ${result.updated} diperbarui, ${result.failed} gagal.`, result });
+});
+
 // Perbarui biodata di Portal; ID internal tidak berubah sehingga riwayat presensi tetap terhubung.
 app.put('/api/admin/users/:type/:id/profile', requireAuth, requireRole('ADMIN'), (req, res) => {
     const type = String(req.params.type || '').toUpperCase();
