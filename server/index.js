@@ -1409,15 +1409,15 @@ app.get('/api/admin/teachers', requireAuth, requireRole('ADMIN'), (req, res) => 
 app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
     try {
         const teachers = db.prepare(`
-            SELECT id, 'TEACHER' AS user_type, full_name, nip AS identifier, nik,
-                   username, role, assigned_division AS division, phone_number, status,
+            SELECT id, 'TEACHER' AS user_type, full_name, nip AS identifier, nip, nik,
+                   username, role, assigned_division AS division, phone_number, address, email, birth_date, status,
                    CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS credential_configured
             FROM teachers ORDER BY full_name COLLATE NOCASE
         `).all();
         const students = db.prepare(`
             SELECT id, 'STUDENT' AS user_type, full_name,
                    COALESCE(NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
-                   nisn, nipd, NULL AS username, role, division, phone_number, status,
+                   nisn, nipd, NULL AS username, role, division, phone_number, address, email, birth_date, gender, parent_name, parent_phone, barcode_id, status,
                    CASE WHEN parent_pin_hash IS NOT NULL AND parent_pin_hash != '' THEN 1 ELSE 0 END AS credential_configured
             FROM members WHERE lower(role) IN ('siswa','student','murid') ORDER BY full_name COLLATE NOCASE
         `).all();
@@ -1425,6 +1425,51 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
     } catch (error) {
         console.error('[USERS][LIST] Gagal mengambil daftar akun:', error.message);
         return res.status(500).json({ success: false, message: 'Daftar pengguna gagal dimuat. Periksa log server.' });
+    }
+});
+
+// Perbarui biodata di Portal; ID internal tidak berubah sehingga riwayat presensi tetap terhubung.
+app.put('/api/admin/users/:type/:id/profile', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const type = String(req.params.type || '').toUpperCase();
+    const id = Number(req.params.id);
+    const body = req.body || {};
+    const clean = value => value == null ? '' : String(value).trim();
+    const fullName = clean(body.full_name);
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ success: false, message: 'ID pengguna tidak valid.' });
+    if (fullName.length < 2 || fullName.length > 160) return res.status(400).json({ success: false, message: 'Nama lengkap wajib diisi (2–160 karakter).' });
+    try {
+        if (type === 'TEACHER') {
+            const nip = clean(body.nip);
+            if (!nip) return res.status(400).json({ success: false, message: 'NIP/identitas guru wajib diisi.' });
+            db.prepare(`
+                UPDATE teachers SET full_name = ?, nip = ?, nik = ?, address = ?, email = ?,
+                    birth_date = ?, phone_number = ?, assigned_division = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            `).run(fullName, nip, clean(body.nik), clean(body.address), clean(body.email), clean(body.birth_date), clean(body.phone_number), clean(body.division), id);
+        } else if (type === 'STUDENT') {
+            const nisn = clean(body.nisn);
+            const nipd = clean(body.nipd);
+            const barcode = clean(body.barcode_id);
+            if (!nisn && !nipd && !barcode) return res.status(400).json({ success: false, message: 'Minimal satu identitas stabil (NISN, NIPD, atau RFID) wajib diisi.' });
+            db.prepare(`
+                UPDATE members SET full_name = ?, nisn = ?, nipd = ?, barcode_id = ?, gender = ?,
+                    division = ?, address = ?, email = ?, birth_date = ?, phone_number = ?,
+                    parent_name = ?, parent_phone = ?
+                WHERE id = ? AND lower(role) IN ('siswa','student','murid')
+            `).run(fullName, nisn || null, nipd || null, barcode || null, clean(body.gender) || 'L',
+                clean(body.division), clean(body.address), clean(body.email), clean(body.birth_date),
+                clean(body.phone_number), clean(body.parent_name), clean(body.parent_phone), id);
+            const exists = db.prepare("SELECT id FROM members WHERE id = ? AND lower(role) IN ('siswa','student','murid')").get(id);
+            if (!exists) return res.status(404).json({ success: false, message: 'Akun siswa tidak ditemukan.' });
+        } else {
+            return res.status(400).json({ success: false, message: 'Jenis akun tidak dikenal.' });
+        }
+        logAudit(db, req, 'UPDATE_USER_BIODATA', type === 'TEACHER' ? 'teachers' : 'members', id, 'Admin memperbarui biodata pengguna');
+        return res.json({ success: true, message: 'Biodata pengguna berhasil diperbarui.' });
+    } catch (error) {
+        if (/UNIQUE constraint failed/i.test(error.message)) return res.status(409).json({ success: false, message: 'NIP, NISN, NIPD, RFID, atau username sudah dipakai akun lain.' });
+        console.error('[USERS][PROFILE] Gagal memperbarui biodata:', error.message);
+        return res.status(500).json({ success: false, message: 'Biodata gagal diperbarui. Periksa format dan log server.' });
     }
 });
 
