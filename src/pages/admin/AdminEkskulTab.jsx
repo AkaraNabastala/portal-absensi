@@ -111,7 +111,7 @@ export default function AdminEkskulTab() {
             {/* Notifikasi Status */}
             {statusMessage && (
                 <div className={"p-4 rounded-2xl border text-xs sm:text-sm font-semibold flex items-center gap-2 " + (statusType === "error" ? "bg-rose-50 border-rose-200 text-rose-800" : "bg-emerald-50 border-emerald-200 text-emerald-800")}>
-                    <Check className="w-4 h-4 text-emerald-600 shrink-0" />
+                    {statusType === 'error' ? <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" /> : <Check className="w-4 h-4 text-emerald-600 shrink-0" />}
                     <span>{statusMessage}</span>
                 </div>
             )}
