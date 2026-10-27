@@ -193,7 +193,7 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                             </div>
                             {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="rounded-lg p-1 text-slate-400 hover:bg-slate-100" aria-label="Tutup"><X className="h-4 w-4" /></button>}
                         </div>
-                        {statusDialog.type === 'progress' && <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-2/3 animate-pulse rounded-full bg-blue-600" /></div>}
+                        {statusDialog.type === 'progress' && <div className="mt-5 h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full w-full animate-pulse rounded-full bg-blue-600/60" /></div><p className="mt-2 text-xs text-slate-500">Menunggu respons server. Persentase progres tidak ditampilkan karena server belum menyediakan data progres bertahap.</p>}
                         {statusDialog.type !== 'progress' && <button onClick={() => setStatusDialog(null)} className="mt-5 w-full rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white">Tutup</button>}
                     </div>
                 </div>
