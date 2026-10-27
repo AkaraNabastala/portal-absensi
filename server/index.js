@@ -1991,7 +1991,7 @@ app.post('/api/sync/push-members', (req, res) => {
 
     // Tentukan jenis akun dari role, bukan nama kelas. Kelas "Umum" atau
     // anggota tanpa kelas tidak boleh membuat siswa salah diklasifikasikan sebagai guru.
-    const staffRoles = new Set(['guru', 'guru mapel', 'guru_mapel', 'guru-mapel', 'teacher', 'pengajar', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'wali kelas', 'wali_kelas', 'walikelas', 'penanggung jawab', 'penanggung_jawab', 'koordinator']);
+    const staffRoles = new Set(['guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'wali kelas', 'walikelas', 'penanggung jawab', 'koordinator']);
     const studentRoles = new Set(['siswa', 'student', 'murid']);
 
     const syncedIds = [];
@@ -2004,7 +2004,7 @@ app.post('/api/sync/push-members', (req, res) => {
     let teachersWithoutLoginCredentials = 0;
     const tx = db.transaction(() => {
         for (const m of members) {
-            const role = String(m.role || '').trim().toLowerCase();
+            const role = String(m.role || '').normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
             const div = m.division_name || 'Umum';
             const isGuru = staffRoles.has(role);
 
