@@ -346,6 +346,24 @@ db.exec(`
   );
 `);
 
+// Migrasi biodata bertahap: database Portal lama tetap kompatibel tanpa perlu dihapus.
+const ensureColumn = (table, column, definition) => {
+  const columns = db.pragma(`table_info(${table})`);
+  if (!columns.some(item => item.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
+};
+for (const [table, column, definition] of [
+  ['teachers', 'address', "TEXT DEFAULT ''"],
+  ['teachers', 'email', "TEXT DEFAULT ''"],
+  ['teachers', 'birth_date', "TEXT DEFAULT ''"],
+  ['members', 'address', "TEXT DEFAULT ''"],
+  ['members', 'email', "TEXT DEFAULT ''"],
+  ['members', 'birth_date', "TEXT DEFAULT ''"]
+]) {
+  ensureColumn(table, column, definition);
+}
+
 // ==========================================
 // SEEDING DATA AWAL (AMAN, BERSIH, TERSTANDAR)
 // ==========================================
