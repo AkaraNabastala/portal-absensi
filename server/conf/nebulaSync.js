@@ -22,8 +22,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
         if (!force && fileStat.mtimeMs <= lastNebulaDbMtime) {
             return { success: true, message: 'Database tidak ada perubahan baru' };
         }
-        lastNebulaDbMtime = fileStat.mtimeMs;
-        const nebulaDb = betterSqlite(NEBULA_DB_PATH, { readonly: false });
+        const nebulaDb = betterSqlite(NEBULA_DB_PATH, { readonly: true });
 
         // 1. Sinkron School Info (Branding, Logo, Nama Sekolah)
         try {
@@ -259,6 +258,9 @@ export function syncFromNebulaApp(portalDb, force = false) {
         }
 
         nebulaDb.close();
+        // Mark this database version as processed only after the sync pass finishes.
+        // A failed pass must remain retryable even when the source database is unchanged.
+        lastNebulaDbMtime = fileStat.mtimeMs;
         return { success: true };
     } catch (err) {
         console.error('[NebulaDirectSync] Fatal Error:', err.message);
