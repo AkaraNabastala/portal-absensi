@@ -92,7 +92,6 @@ export function syncFromNebulaApp(portalDb, force = false) {
             `);
 
             const defaultPinHash = bcrypt.hashSync('123456', 10);
-            const unavailableLoginHash = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
             const upsertMember = portalDb.prepare(`
                 INSERT INTO members (barcode_id, nipd, nisn, full_name, division, parent_pin_hash, parent_name, parent_phone, photo_url, role)
@@ -184,16 +183,25 @@ export function syncFromNebulaApp(portalDb, force = false) {
 
                     const validBcryptHash = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(String(m.login_password_hash || ''));
                     const hasLoginCredentials = Boolean(m.login_username && validBcryptHash);
+                    const existingTeacher = portalDb.prepare('SELECT password_hash FROM teachers WHERE nip = ? LIMIT 1').get(teacherNip);
+                    const existingHash = String(existingTeacher?.password_hash || '');
+                    // Revoke the old shared default password if an account was created by an older sync.
+                    const hasLegacyDefaultPassword = !hasLoginCredentials
+                        && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(existingHash)
+                        && bcrypt.compareSync('Guru2026!', existingHash);
+                    const updateCredentials = hasLoginCredentials || hasLegacyDefaultPassword;
                     const loginUsername = hasLoginCredentials ? String(m.login_username).trim() : String(teacherNip);
-                    const loginPasswordHash = hasLoginCredentials ? String(m.login_password_hash) : unavailableLoginHash;
+                    const loginPasswordHash = hasLoginCredentials
+                        ? String(m.login_password_hash)
+                        : bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
                     upsertTeacher.run(
                         teacherNip,
                         loginUsername,
                         loginPasswordHash,
                         nameVal,
                         assignedClass,
-                        hasLoginCredentials ? 1 : 0,
-                        hasLoginCredentials ? 1 : 0
+                        updateCredentials ? 1 : 0,
+                        updateCredentials ? 1 : 0
                     );
                 }
             }
