@@ -1405,6 +1405,92 @@ app.get('/api/admin/teachers', requireAuth, requireRole('ADMIN'), (req, res) => 
     res.json({ success: true, data: list });
 });
 
+// Pusat Users: satukan akun admin, guru, dan siswa tanpa pernah mengirim hash kredensial ke browser.
+app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
+    try {
+        const teachers = db.prepare(`
+            SELECT id, 'TEACHER' AS user_type, full_name, nip AS identifier, nik,
+                   username, role, assigned_division AS division, phone_number, status,
+                   CASE WHEN password_hash IS NOT NULL AND password_hash != '' THEN 1 ELSE 0 END AS credential_configured
+            FROM teachers ORDER BY full_name COLLATE NOCASE
+        `).all();
+        const students = db.prepare(`
+            SELECT id, 'STUDENT' AS user_type, full_name,
+                   COALESCE(NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
+                   nisn, nipd, NULL AS username, role, division, phone_number, status,
+                   CASE WHEN parent_pin_hash IS NOT NULL AND parent_pin_hash != '' THEN 1 ELSE 0 END AS credential_configured
+            FROM members ORDER BY full_name COLLATE NOCASE
+        `).all();
+        return res.json({ success: true, data: [...teachers, ...students] });
+    } catch (error) {
+        console.error('[USERS][LIST] Gagal mengambil daftar akun:', error.message);
+        return res.status(500).json({ success: false, message: 'Daftar pengguna gagal dimuat. Periksa log server.' });
+    }
+});
+
+// Ganti kredensial guru/siswa secara individual. Username adalah identitas login, bukan ID relasi data.
+app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    const type = String(req.params.type || '').toUpperCase();
+    const id = Number(req.params.id);
+    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    if (!Number.isSafeInteger(id) || id < 1) return res.status(400).json({ success: false, message: 'ID pengguna tidak valid.' });
+    try {
+        if (type === 'TEACHER') {
+            if (username.length < 3 || username.length > 80) return res.status(400).json({ success: false, message: 'Username guru harus berisi 3–80 karakter.' });
+            if (password.length < 12 || password.length > 200) return res.status(400).json({ success: false, message: 'Password guru minimal 12 karakter.' });
+            const teacher = db.prepare('SELECT id, full_name FROM teachers WHERE id = ?').get(id);
+            if (!teacher) return res.status(404).json({ success: false, message: 'Akun guru tidak ditemukan.' });
+            const collision = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) AND id != ?').get(username, id);
+            if (collision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun guru lain.' });
+            db.prepare('UPDATE teachers SET username = ?, password_hash = ? WHERE id = ?')
+                .run(username, bcrypt.hashSync(password, 12), id);
+            logAudit(db, req, 'UPDATE_USER_CREDENTIALS', 'teachers', id, 'Admin memperbarui username/password guru');
+            return res.json({ success: true, message: 'Kredensial guru berhasil diperbarui.' });
+        }
+        if (type === 'STUDENT') {
+            if (!/^\\d{6,12}$/.test(password) || ['123456','654321','000000','111111','222222','333333','444444','555555','666666','777777','888888','999999'].includes(password)) {
+                return res.status(400).json({ success: false, message: 'PIN siswa harus 6–12 digit dan tidak boleh mudah ditebak.' });
+            }
+            const student = db.prepare("SELECT id, full_name, role FROM members WHERE id = ? AND lower(role) IN ('siswa','student','murid')").get(id);
+            if (!student) return res.status(404).json({ success: false, message: 'Akun siswa tidak ditemukan.' });
+            db.prepare('UPDATE members SET parent_pin_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 12), id);
+            logAudit(db, req, 'RESET_STUDENT_PIN', 'members', id, 'Admin mereset PIN pribadi siswa/wali');
+            return res.json({ success: true, message: 'PIN siswa berhasil diperbarui.' });
+        }
+        return res.status(400).json({ success: false, message: 'Jenis akun tidak dikenal.' });
+    } catch (error) {
+        console.error('[USERS][CREDENTIALS] Gagal memperbarui kredensial:', error.message);
+        return res.status(500).json({ success: false, message: 'Kredensial gagal diperbarui. Periksa kemungkinan username duplikat dan log server.' });
+    }
+});
+
+// Admin dapat mengubah username dan password miliknya sendiri dengan verifikasi password saat ini.
+app.put('/api/admin/account-credentials', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const currentPassword = typeof req.body?.currentPassword === 'string' ? req.body.currentPassword : '';
+    const username = typeof req.body?.username === 'string' ? req.body.username.trim() : '';
+    const newPassword = typeof req.body?.newPassword === 'string' ? req.body.newPassword : '';
+    if (username.length < 3 || username.length > 80) return res.status(400).json({ success: false, message: 'Username admin harus berisi 3–80 karakter.' });
+    if (newPassword.length < 12 || newPassword.length > 200) return res.status(400).json({ success: false, message: 'Password admin baru minimal 12 karakter.' });
+    const settings = db.prepare('SELECT admin_username, admin_password_hash FROM school_settings WHERE id = 1').get();
+    if (!settings?.admin_password_hash || !bcrypt.compareSync(currentPassword, settings.admin_password_hash)) {
+        return res.status(401).json({ success: false, message: 'Password saat ini tidak cocok.' });
+    }
+    const duplicate = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) LIMIT 1').get(username);
+    if (duplicate) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun guru.' });
+    try {
+        db.prepare('UPDATE school_settings SET admin_username = ?, admin_password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1')
+            .run(username, bcrypt.hashSync(newPassword, 12));
+        // Akhiri sesi admin lain agar perubahan kredensial berlaku segera; sesi yang dipakai tetap aktif.
+        db.prepare("DELETE FROM sessions WHERE user_role = 'ADMIN' AND token != ?").run(req.user.token);
+        logAudit(db, req, 'UPDATE_ADMIN_CREDENTIALS', 'school_settings', 1, 'Admin mengubah username/password akun sendiri');
+        return res.json({ success: true, message: 'Username dan password admin berhasil diperbarui.', username });
+    } catch (error) {
+        console.error('[USERS][ADMIN CREDENTIALS] Gagal memperbarui akun admin:', error.message);
+        return res.status(500).json({ success: false, message: 'Akun admin gagal diperbarui.' });
+    }
+});
+
 // Admin: Ambil daftar seluruh rombel / kelas
 app.get('/api/admin/divisions', requireAuth, requireRole('ADMIN'), (req, res) => {
     const divisions = db.prepare('SELECT id, name, supervisor_teacher_id, supervisor_name, academic_year FROM divisions ORDER BY name ASC').all();
