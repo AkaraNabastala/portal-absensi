@@ -67,6 +67,7 @@ db.exec(`
     photo_url TEXT,
     phone_number TEXT,
     status TEXT DEFAULT 'ACTIVE',    -- 'ACTIVE', 'INACTIVE'
+    credentials_ready INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 `);
@@ -355,6 +356,7 @@ const ensureColumn = (table, column, definition) => {
 };
 for (const [table, column, definition] of [
   ['teachers', 'address', "TEXT DEFAULT ''"],
+  ['teachers', 'credentials_ready', 'INTEGER DEFAULT 1'],
   ['teachers', 'email', "TEXT DEFAULT ''"],
   ['teachers', 'birth_date', "TEXT DEFAULT ''"],
   ['members', 'address', "TEXT DEFAULT ''"],
