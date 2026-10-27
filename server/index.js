@@ -2077,6 +2077,9 @@ app.post('/api/sync/push-members', (req, res) => {
     });
     tx();
     console.info(`[Portal Sync Members] Selesai: ${syncedIds.length} tersinkron, ${skipped} dilewati, ${deactivatedStudents} siswa dinonaktifkan, ${deactivatedTeachers} guru dinonaktifkan; akun guru dengan kredensial desktop=${teachersWithLoginCredentials}, tanpa kredensial=${teachersWithoutLoginCredentials}.`);
+    if (teachersWithoutLoginCredentials > 0) {
+        console.warn(`[Portal Sync Members Warning] ${teachersWithoutLoginCredentials} akun guru tidak menerima kredensial dari desktop. Login guru tersebut tidak akan berhasil sampai akun login dibuat/diperbarui di Nebula Presence lalu disinkronkan ulang.`);
+    }
     res.json({
         success: skipped === 0,
         synced: syncedIds.length,
