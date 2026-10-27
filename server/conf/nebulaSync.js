@@ -133,11 +133,12 @@ export function syncFromNebulaApp(portalDb, force = false) {
             `);
 
             const upsertTeacher = portalDb.prepare(`
-                INSERT INTO teachers (nip, username, password_hash, full_name, assigned_division, role)
-                VALUES (?, ?, ?, ?, ?, 'WALI_KELAS')
+                INSERT INTO teachers (nip, username, password_hash, full_name, assigned_division, role, credentials_ready)
+                VALUES (?, ?, ?, ?, ?, 'WALI_KELAS', ?)
                 ON CONFLICT(nip) DO UPDATE SET
                     username = CASE WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
                     password_hash = CASE WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
+                    credentials_ready = CASE WHEN ? = 1 THEN ? ELSE teachers.credentials_ready END,
                     full_name = excluded.full_name,
                     assigned_division = COALESCE(excluded.assigned_division, teachers.assigned_division)
             `);
@@ -221,8 +222,11 @@ export function syncFromNebulaApp(portalDb, force = false) {
                         loginPasswordHash,
                         nameVal,
                         assignedClass,
+                        hasLoginCredentials ? 1 : 0,
                         updateCredentials ? 1 : 0,
-                        updateCredentials ? 1 : 0
+                        updateCredentials ? 1 : 0,
+                        updateCredentials ? 1 : 0,
+                        hasLoginCredentials ? 1 : 0
                     );
                 }
             }
