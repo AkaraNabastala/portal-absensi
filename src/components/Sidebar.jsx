@@ -32,6 +32,7 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
     // 0. Menu Khusus Administrator
     const adminMenus = [
         { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'users', label: 'Users', icon: Users },
         { id: 'admin_schedules', label: 'Jadwal & Guru Mapel', icon: CalendarDays },
         { id: 'admin_journals', label: 'Monitoring Jurnal', icon: BookOpen },
         { id: 'ekskul', label: 'Ekskul & Pembina', icon: Users },
