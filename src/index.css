@@ -254,3 +254,5 @@ html[data-sky-phase="night"] .portal-sky-stars,html[data-sky-phase="night"] .por
 html[data-sky-phase="sunset"] .portal-sky-sun { opacity:.34; color:#e87955; }
 .portal-content,.portal-topbar,.portal-bottom-nav { position:relative; z-index:1; }
 @media(prefers-reduced-motion:reduce){.portal-sky-orb,.portal-sky-stars,.portal-sky-twinkles{transition:none!important;animation:none!important}}
+
+.portal-sky-moon { left:var(--portal-sky-moon-x, 85%); top:var(--portal-sky-moon-y, 9%); }
