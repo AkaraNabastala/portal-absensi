@@ -90,6 +90,12 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
 
   return (
     <div className="portal-sky-canvas min-h-screen bg-[#f4f8fc] text-slate-800 flex font-sans antialiased relative">
+      <div className="portal-sky-scene" aria-hidden="true">
+        <svg className="portal-sky-orb portal-sky-sun" viewBox="0 0 120 120" fill="none"><circle cx="60" cy="60" r="24" fill="currentColor"/><circle cx="60" cy="60" r="34" stroke="currentColor" strokeWidth="3" strokeDasharray="2 10" strokeLinecap="round"/><path d="M60 5V16M60 104V115M5 60H16M104 60H115M21 21L29 29M91 91L99 99M99 21L91 29M29 91L21 99" stroke="currentColor" strokeWidth="4" strokeLinecap="round"/></svg>
+        <svg className="portal-sky-orb portal-sky-moon" viewBox="0 0 120 120"><path d="M82 16C76 48 51 74 18 79C29 105 57 116 82 103C111 88 117 49 96 27C92 23 87 19 82 16Z" fill="currentColor"/><circle cx="89" cy="25" r="2" fill="currentColor"/><circle cx="104" cy="47" r="1.8" fill="currentColor"/></svg>
+        <div className="portal-sky-stars" />
+        <div className="portal-sky-twinkles"><i>✦</i><i>✧</i><i>✦</i><i>✧</i><i>·</i><i>✦</i></div>
+      </div>
       {/* Desktop Sidebar (Seragam untuk Siswa, Guru, dan Admin) */}
       <Sidebar
         currentUser={currentUser}
@@ -194,6 +200,13 @@ export default function App() {
       root.style.setProperty('--portal-sky-canvas', mix(from.canvas, to.canvas, progress));
       root.style.setProperty('--portal-sky-accent', mix(from.accent, to.accent, progress));
       root.style.setProperty('--portal-sky-warm', mix(from.warm, to.warm, progress));
+      // Busur visual mengikuti posisi matahari dan bulan pada jam lokal perangkat.
+      const daylight = Math.max(0, Math.min(1, (hour - 5.5) / 12.5));
+      root.style.setProperty('--portal-sky-object-x', `${7 + daylight * 78}%`);
+      root.style.setProperty('--portal-sky-object-y', `${9 + Math.sin(daylight * Math.PI) * 30}%`);
+      const moonProgress = hour >= 18 ? (hour - 18) / 12 : (hour + 6) / 12;
+      root.style.setProperty('--portal-sky-moon-x', `${85 - Math.max(0, Math.min(1, moonProgress)) * 78}%`);
+      root.style.setProperty('--portal-sky-moon-y', `${9 + Math.sin(Math.max(0, Math.min(1, moonProgress)) * Math.PI) * 30}%`);
     };
     updateSky();
     const timer = window.setInterval(updateSky, 15_000);
