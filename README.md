@@ -24,3 +24,6 @@ If you are developing a production application, we recommend using TypeScript wi
 - Endpoint riwayat presensi siswa memeriksa hak akses berdasarkan role, identitas siswa, dan kelas yang menjadi kewenangan guru.
 
 Setelah mengubah konfigurasi, jalankan build dan pengujian integrasi autentikasi serta sinkronisasi sebelum deployment.
+
+- Saat sinkronisasi, sistem tidak membuat PIN bersama untuk akun baru dan akan mencabut hash PIN bersama lama ketika akun tersebut ditemukan kembali. Administrator dapat menetapkan PIN privat melalui menu **Atur PIN Siswa / Wali** pada halaman sinkronisasi admin.
+- Identitas anggota saat sinkronisasi harus memiliki NISN, NIPD, atau kode RFID yang stabil. Baris tanpa identitas stabil tidak dibuat dengan ID acak; baris tersebut dicatat sebagai masalah sinkronisasi.
