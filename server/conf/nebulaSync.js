@@ -146,9 +146,14 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 const rawNipd = m.nipd || null;
                 const rawNisn = m.nisn || null;
                 const nipdVal = rawNipd && String(rawNipd).trim() !== '' ? String(rawNipd).trim() : null;
-                const nisnVal = rawNisn && String(rawNisn).trim() !== '' ? String(rawNisn).trim() : (nipdVal || `ID-${Date.now()}-${Math.floor(Math.random()*1000)}`);
+                const nisnVal = rawNisn && String(rawNisn).trim() !== '' ? String(rawNisn).trim() : nipdVal;
                 const barcodeVal = m.rfid_code || nisnVal || nipdVal;
                 const nameVal = m.full_name || 'Anggota';
+                if (!nisnVal && !nipdVal && !barcodeVal) {
+                    hadSyncErrors = true;
+                    console.warn(`[NebulaDirectSync] Anggota "${nameVal}" dilewati karena tidak memiliki NISN, NIPD, atau kode RFID yang stabil.`);
+                    continue;
+                }
                 const roleVal = m.role ? String(m.role).normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ') : 'siswa';
                 const divisionVal = m.division_name || 'Umum';
                 const phoneVal = m.phone_number || null;
