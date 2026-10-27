@@ -37,6 +37,14 @@ export default function AdminUsersTab() {
 
   React.useEffect(() => { loadUsers(); }, []);
 
+  React.useEffect(() => {
+    let mounted = true;
+    authFetch('/api/auth/me').then(res => res.json()).then(data => {
+      if (mounted && data.success) setAdminForm(prev => ({ ...prev, username: data.user?.username || prev.username }));
+    }).catch(() => {});
+    return () => { mounted = false; };
+  }, []);
+
   const updateForm = (key, field, value) => setForms(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } }));
 
   const saveAdminCredentials = async event => {
