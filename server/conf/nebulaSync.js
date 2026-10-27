@@ -96,14 +96,15 @@ export function syncFromNebulaApp(portalDb, force = false) {
             `).all();
 
             const findMember = portalDb.prepare(`
-                SELECT id FROM members 
+                SELECT id, parent_pin_hash FROM members 
                 WHERE (nisn IS NOT NULL AND nisn != '' AND nisn = ?) 
                    OR (nipd IS NOT NULL AND nipd != '' AND nipd = ?) 
                    OR (barcode_id IS NOT NULL AND barcode_id != '' AND barcode_id = ?)
                 LIMIT 1
             `);
 
-            const defaultPinHash = bcrypt.hashSync('123456', 10);
+            // PIN wali/siswa tidak boleh dibuat dengan nilai bawaan yang diketahui umum.
+            // PIN bersama lama akan dicabut saat sinkronisasi menemukan akun terkait.
 
             const upsertMember = portalDb.prepare(`
                 INSERT INTO members (barcode_id, nipd, nisn, full_name, division, parent_pin_hash, parent_name, parent_phone, photo_url, role)
@@ -155,6 +156,9 @@ export function syncFromNebulaApp(portalDb, force = false) {
 
                 const existing = findMember.get(nisnVal, nipdVal || '', barcodeVal || '');
                 if (existing) {
+                    if (existing.parent_pin_hash && bcrypt.compareSync('123456', existing.parent_pin_hash)) {
+                        portalDb.prepare('UPDATE members SET parent_pin_hash = NULL WHERE id = ?').run(existing.id);
+                    }
                     updateMemberById.run(
                         nameVal,
                         divisionVal,
@@ -173,7 +177,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
                         nisnVal,
                         nameVal,
                         divisionVal,
-                        defaultPinHash,
+                        null,
                         phoneVal,
                         photoVal,
                         roleVal
