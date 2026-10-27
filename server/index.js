@@ -62,6 +62,20 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
 // Pasang auth middleware untuk mengenali Bearer token di setiap request
+// Catat setiap request API agar 401/404/500 terlihat jelas di log server tanpa membocorkan token atau isi payload.
+app.use((req, res, next) => {
+    if (!req.path.startsWith('/api')) return next();
+    const startedAt = Date.now();
+    res.on('finish', () => {
+        const route = String(req.originalUrl || req.path).split('?')[0];
+        const line = `[${res.statusCode >= 400 ? 'Portal HTTP Error' : 'Portal HTTP'}] ${req.method} ${route} -> ${res.statusCode} (${Date.now() - startedAt}ms)`;
+        if (res.statusCode >= 500) console.error(line);
+        else if (res.statusCode >= 400) console.warn(line);
+        else console.info(line);
+    });
+    next();
+});
+
 app.use(createAuthMiddleware(db));
 
 // Helper verifikasi token sync Nebula Presence (Ketat: Tanpa IP localhost bypass)
@@ -370,6 +384,8 @@ app.post('/api/auth/login', (req, res) => {
         }
     }
 
+    const maskedIdentifier = cleanId.length > 4 ? `${cleanId.slice(0, 2)}***${cleanId.slice(-2)}` : '***';
+    console.warn(`[Auth Login] Kredensial tidak valid untuk identifier ${maskedIdentifier}.`);
     return res.status(401).json({
         success: false,
         message: 'Kredensial tidak valid. Periksa kembali ID dan Kata Sandi / PIN Anda.'
@@ -1934,6 +1950,7 @@ app.post('/api/sync/push-members', (req, res) => {
         return res.status(401).json({ success: false, message: 'Sync secret tidak valid.' });
     }
     const { members = [], full_snapshot = false } = req.body;
+    console.info(`[Portal Sync Members] Payload diterima: ${Array.isArray(members) ? members.length : 0} anggota; full_snapshot=${Boolean(full_snapshot)}.`);
     const defaultPinHash = bcrypt.hashSync('123456', 10);
     // Akun guru tanpa kredensial dari aplikasi tidak boleh mendapat sandi default yang diketahui umum.
     const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
@@ -2051,6 +2068,7 @@ app.post('/api/sync/push-members', (req, res) => {
         }
     });
     tx();
+    console.info(`[Portal Sync Members] Selesai: ${syncedIds.length} tersinkron, ${skipped} dilewati, ${deactivatedStudents} siswa dinonaktifkan, ${deactivatedTeachers} guru dinonaktifkan.`);
     res.json({
         success: skipped === 0,
         synced: syncedIds.length,
@@ -2133,6 +2151,13 @@ app.get('/api/sync/pull-remote-updates', (req, res) => {
     `).all(since);
 
     res.json({ success: true, updates: approvedLeaves });
+});
+
+// Penanganan error terpusat: tampilkan stack di log server, tetapi kirim pesan aman ke klien.
+app.use((err, req, res, next) => {
+    console.error(`[Portal Unhandled Error] ${req.method} ${String(req.originalUrl || req.path).split('?')[0]}:`, err?.stack || err);
+    if (res.headersSent) return next(err);
+    return res.status(500).json({ success: false, message: 'Terjadi kesalahan internal portal. Periksa log server.' });
 });
 
 // Serve frontend produksi jika ada
