@@ -1946,7 +1946,7 @@ app.post('/api/sync/push-members', (req, res) => {
 
     // Tentukan jenis akun dari role, bukan nama kelas. Kelas "Umum" atau
     // anggota tanpa kelas tidak boleh membuat siswa salah diklasifikasikan sebagai guru.
-    const staffRoles = new Set(['guru', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'wali kelas', 'wali_kelas', 'walikelas', 'penanggung jawab', 'penanggung_jawab', 'koordinator']);
+    const staffRoles = new Set(['guru', 'guru mapel', 'guru_mapel', 'teacher', 'pengajar', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'wali kelas', 'wali_kelas', 'walikelas', 'penanggung jawab', 'penanggung_jawab', 'koordinator']);
     const studentRoles = new Set(['siswa', 'student', 'murid']);
 
     const syncedIds = [];
