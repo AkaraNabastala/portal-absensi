@@ -14,3 +14,16 @@ The React Compiler is not enabled on this template because of its impact on dev 
 ## Expanding the ESLint configuration
 
 If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+
+
+## Konfigurasi deployment dan keamanan
+
+- Atur `PORTAL_ALLOWED_ORIGINS` sebagai daftar origin frontend yang benar-benar digunakan, dipisahkan koma, misalnya `https://portal.example.id`. Jangan menggunakan wildcard untuk deployment produksi.
+- Pada mode pengembangan, origin localhost diizinkan. Pada mode produksi, hanya origin yang terdaftar yang diizinkan. Permintaan server-ke-server tanpa header `Origin` tetap dapat digunakan untuk sinkronisasi.
+- Akun siswa/wali hanya dapat login menggunakan PIN yang cocok dengan hash tersimpan. PIN bawaan `123456` dan `1234` tidak lagi diterima.
+- Endpoint riwayat presensi siswa memeriksa hak akses berdasarkan role, identitas siswa, dan kelas yang menjadi kewenangan guru.
+
+Setelah mengubah konfigurasi, jalankan build dan pengujian integrasi autentikasi serta sinkronisasi sebelum deployment.
+
+- Saat sinkronisasi, sistem tidak membuat PIN bersama untuk akun baru dan akan mencabut hash PIN bersama lama ketika akun tersebut ditemukan kembali. Administrator dapat menetapkan PIN privat melalui menu **Atur PIN Siswa / Wali** pada halaman sinkronisasi admin.
+- Identitas anggota saat sinkronisasi harus memiliki NISN, NIPD, atau kode RFID yang stabil. Baris tanpa identitas stabil tidak dibuat dengan ID acak; baris tersebut dicatat sebagai masalah sinkronisasi.

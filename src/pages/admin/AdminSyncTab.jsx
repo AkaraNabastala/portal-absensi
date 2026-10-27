@@ -20,6 +20,9 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
     const [generatingToken, setGeneratingToken] = useState(false);
     const [statusMessage, setStatusMessage] = useState('');
     const [statusDialog, setStatusDialog] = useState(null);
+    const [pinMemberIdentifier, setPinMemberIdentifier] = useState('');
+    const [newParentPin, setNewParentPin] = useState('');
+    const [savingParentPin, setSavingParentPin] = useState(false);
 
     const origin = typeof window !== 'undefined' ? window.location.origin : '';
     const gatewayUrl = `${origin}/api/sync`;
@@ -85,6 +88,32 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
         }
     };
 
+    const handleSetParentPin = async (event) => {
+        event.preventDefault();
+        if (!pinMemberIdentifier.trim() || !newParentPin) return;
+        setSavingParentPin(true);
+        try {
+            const endpoint = '/api/admin/members/' + encodeURIComponent(pinMemberIdentifier.trim()) + '/parent-pin';
+            const res = await authFetch(endpoint, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ pin: newParentPin })
+            });
+            const data = await res.json();
+            setStatusDialog({
+                type: res.ok && data.success ? 'success' : 'error',
+                message: data.message || (res.ok ? 'PIN berhasil diperbarui.' : 'Gagal memperbarui PIN.')
+            });
+            if (res.ok && data.success) {
+                setPinMemberIdentifier('');
+                setNewParentPin('');
+            }
+        } catch {
+            setStatusDialog({ type: 'error', message: 'Tidak dapat menghubungi server untuk memperbarui PIN.' });
+        } finally {
+            setSavingParentPin(false);
+        }
+    };
     return (
         <div className="space-y-6">
             {/* Notifikasi Status */}
@@ -182,6 +211,31 @@ export default function AdminSyncTab({ settings: propSettings, onSettingsChange 
                         </button>
                     </div>
                 </div>
+            </div>
+            {/* Pengelolaan PIN akun siswa/wali */}
+            <div className="bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-4">
+                <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-amber-50 text-amber-700 rounded-xl"><KeyRound className="w-5 h-5" /></div>
+                    <div>
+                        <h3 className="text-sm sm:text-base font-bold text-slate-900">Atur PIN Siswa / Wali</h3>
+                        <p className="text-xs text-slate-500">Tetapkan PIN pribadi; sistem tidak lagi menggunakan PIN bawaan.</p>
+                    </div>
+                </div>
+                <form onSubmit={handleSetParentPin} className="grid grid-cols-1 sm:grid-cols-[1fr_1fr_auto] gap-3 items-end">
+                    <div>
+                        <label htmlFor="parent-pin-member" className="block text-xs font-bold text-slate-600 mb-2">ID anggota, NISN, atau NIPD</label>
+                        <input id="parent-pin-member" value={pinMemberIdentifier} onChange={(event) => setPinMemberIdentifier(event.target.value)} autoComplete="off" required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="Masukkan ID siswa" />
+                    </div>
+                    <div>
+                        <label htmlFor="parent-pin-value" className="block text-xs font-bold text-slate-600 mb-2">PIN baru (6–12 digit)</label>
+                        <input id="parent-pin-value" type="password" inputMode="numeric" autoComplete="new-password" pattern="[0-9]{6,12}" maxLength={12} value={newParentPin} onChange={(event) => setNewParentPin(event.target.value.replace(/\D/g, '').slice(0, 12))} required className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-blue-500" placeholder="PIN pribadi" />
+                    </div>
+                    <button type="submit" disabled={savingParentPin || !pinMemberIdentifier.trim() || newParentPin.length < 6} className="inline-flex items-center justify-center gap-2 rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-slate-800 disabled:opacity-50">
+                        {savingParentPin ? <RefreshCw className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
+                        {savingParentPin ? 'Menyimpan…' : 'Simpan PIN'}
+                    </button>
+                </form>
+                <p className="text-[11px] text-slate-500">PIN bawaan dan pola yang mudah ditebak ditolak. Sampaikan PIN baru secara privat kepada wali/siswa yang bersangkutan.</p>
             </div>
             {statusDialog && (
                 <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/45 p-4" role="dialog" aria-modal="true" aria-live="polite">

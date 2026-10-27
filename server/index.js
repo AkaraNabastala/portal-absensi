@@ -52,8 +52,29 @@ try {
 }
 
 // Security headers & Middleware
+const configuredOrigins = String(process.env.PORTAL_ALLOWED_ORIGINS || '')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+const isLocalDevelopmentOrigin = (origin) => {
+    try {
+        const parsed = new URL(origin);
+        return ['localhost', '127.0.0.1'].includes(parsed.hostname) &&
+            ['http:', 'https:'].includes(parsed.protocol);
+    } catch {
+        return false;
+    }
+};
 app.use(cors({
-    origin: true,
+    origin(origin, callback) {
+        // Requests from native clients/server-to-server sync may not send Origin.
+        if (!origin) return callback(null, true);
+        if (configuredOrigins.includes(origin) ||
+            (process.env.NODE_ENV !== 'production' && isLocalDevelopmentOrigin(origin))) {
+            return callback(null, true);
+        }
+        return callback(new Error('Origin tidak diizinkan oleh kebijakan CORS.'));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'x-sync-secret', 'x-auth-token']
@@ -249,7 +270,7 @@ app.post('/api/auth/login', (req, res) => {
                     school_address: schoolSettings?.school_address,
                     academic_year: schoolSettings?.academic_year || '2026/2027',
                     license_status: schoolSettings?.license_status || 'ACTIVE',
-                    sync_secret: schoolSettings?.sync_secret || '',
+                    // Secret sinkronisasi hanya diambil melalui endpoint pengaturan admin, bukan disimpan di data sesi frontend.
                     last_sync_at: schoolSettings?.last_sync_at
                 } 
             }
@@ -346,12 +367,12 @@ app.post('/api/auth/login', (req, res) => {
     `).get(cleanId, cleanId, cleanId);
 
     if (student) {
-        let pinValid = false;
-        if (student.parent_pin_hash && bcrypt.compareSync(String(secret), student.parent_pin_hash)) {
-            pinValid = true;
-        } else if (String(secret) === '123456' || String(secret) === '1234') {
-            pinValid = true;
-        }
+        // Hanya PIN yang cocok dengan hash tersimpan yang boleh diterima.
+        // Tidak ada PIN bawaan seperti 123456/1234 karena dapat membuka akun orang lain.
+        const pinValid = Boolean(
+            student.parent_pin_hash &&
+            bcrypt.compareSync(String(secret), student.parent_pin_hash)
+        );
 
         if (pinValid) {
             const studentPayload = {
@@ -1499,6 +1520,15 @@ app.get('/api/student/subject-attendance/:studentId', requireAuth, (req, res) =>
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
     }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'PARENT' && String(req.user.userId) !== String(studentId)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
+    }
 
     // Ambil log presensi mata pelajaran dari teacher_journal_attendance
     const attendances = db.prepare(`
@@ -1558,6 +1588,15 @@ app.get('/api/student/ekskul-attendance/:studentId', requireAuth, (req, res) => 
     const student = db.prepare('SELECT id, division, full_name FROM members WHERE id = ?').get(studentId);
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
+    }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'PARENT' && String(req.user.userId) !== String(studentId)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
     }
 
     // Ekstrakurikuler yang diikuti siswa
@@ -1674,6 +1713,28 @@ app.post('/api/admin/cleanup-demo-data', requireAuth, requireRole('ADMIN'), (req
     }
 });
 
+// Admin: tetapkan PIN pribadi untuk akun siswa/wali tanpa PIN bawaan.
+app.post('/api/admin/members/:id/parent-pin', requireAuth, requireRole('ADMIN'), async (req, res) => {
+    const pin = String(req.body?.pin || '');
+    if (!/^\d{6,12}$/.test(pin) || ['123456', '654321', '1234567890', '000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999'].includes(pin)) {
+        return res.status(400).json({ success: false, message: 'PIN harus terdiri dari 6 sampai 12 digit dan tidak boleh mudah ditebak.' });
+    }
+    const identifier = String(req.params.id || '').trim();
+    const member = db.prepare("SELECT id, full_name, role FROM members WHERE (id = ? OR nisn = ? OR nipd = ?) AND status = 'ACTIVE' LIMIT 1")
+        .get(identifier, identifier, identifier);
+    if (!member || !['siswa', 'student', 'murid'].includes(String(member.role || '').trim().toLowerCase())) {
+        return res.status(404).json({ success: false, message: 'Akun siswa aktif tidak ditemukan.' });
+    }
+    try {
+        const pinHash = await bcrypt.hash(pin, 12);
+        db.prepare('UPDATE members SET parent_pin_hash = ? WHERE id = ?').run(pinHash, member.id);
+        logAudit(db, req, 'SET_PARENT_PIN', 'members', member.id, 'Admin menetapkan PIN baru untuk akun siswa/wali');
+        return res.json({ success: true, message: 'PIN siswa/wali berhasil diperbarui.' });
+    } catch (error) {
+        console.error('[Parent PIN Update] Gagal memperbarui PIN:', error.message);
+        return res.status(500).json({ success: false, message: 'Gagal memperbarui PIN.' });
+    }
+});
 // Ambil Pengaturan Sekolah & Sync Token untuk Admin
 app.get('/api/admin/settings', requireAuth, requireRole('ADMIN'), (req, res) => {
     const settings = db.prepare('SELECT id, school_name, school_address, academic_year, license_status, sync_secret, last_sync_at FROM school_settings WHERE id = 1').get();
@@ -1962,7 +2023,8 @@ app.post('/api/sync/push-members', (req, res) => {
     }
     const { members = [], full_snapshot = false } = req.body;
     console.info(`[Portal Sync Members] Payload diterima: ${Array.isArray(members) ? members.length : 0} anggota; full_snapshot=${Boolean(full_snapshot)}.`);
-    const defaultPinHash = bcrypt.hashSync('123456', 10);
+    // Siswa baru tidak diberi PIN bawaan. Admin harus menetapkan PIN pribadi melalui alur pengelolaan akun.
+    // Hash PIN bersama lama (123456) akan dicabut saat anggota berikutnya disinkronkan.
     // Akun guru tanpa kredensial dari aplikasi tidak boleh mendapat sandi default yang diketahui umum.
     const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
@@ -2044,6 +2106,11 @@ app.post('/api/sync/push-members', (req, res) => {
                 syncedIds.push(m.id);
                 syncedTeacherNips.add(String(nip));
             } else if (studentRoles.has(role) && m.nisn) {
+                const existingStudent = db.prepare('SELECT id, parent_pin_hash FROM members WHERE nisn = ? LIMIT 1').get(m.nisn);
+                if (existingStudent?.parent_pin_hash &&
+                    bcrypt.compareSync('123456', existingStudent.parent_pin_hash)) {
+                    db.prepare('UPDATE members SET parent_pin_hash = NULL WHERE id = ?').run(existingStudent.id);
+                }
                 upsertStudent.run(
                     m.rfid_code || m.barcode_id || `BC-${m.id}`,
                     m.nipd || null,
@@ -2053,7 +2120,7 @@ app.post('/api/sync/push-members', (req, res) => {
                     div,
                     m.photo || null,
                     m.phone_number || null,
-                    defaultPinHash
+                    null
                 );
                 syncedIds.push(m.id);
                 syncedStudentIdentities.add(String(m.nisn));
