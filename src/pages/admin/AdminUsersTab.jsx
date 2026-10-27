@@ -1,5 +1,6 @@
 import React from 'react';
-import { KeyRound, RefreshCw, Search, ShieldCheck, Users } from 'lucide-react';
+import { Download, FileSpreadsheet, KeyRound, RefreshCw, Search, ShieldCheck, Upload, Users } from 'lucide-react';
+import * as XLSX from 'xlsx-js-style';
 import { authFetch } from '../../utils/api';
 
 const inputClass = 'w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100';
@@ -15,6 +16,9 @@ export default function AdminUsersTab() {
   const [forms, setForms] = React.useState({});
   const [profileForms, setProfileForms] = React.useState({});
   const [profileOpen, setProfileOpen] = React.useState({});
+  const [importing, setImporting] = React.useState(false);
+  const [importSummary, setImportSummary] = React.useState(null);
+  const importInput = React.useRef(null);
 
   const loadUsers = async () => {
     setLoading(true);
@@ -101,6 +105,57 @@ export default function AdminUsersTab() {
     } finally { setBusy(''); }
   };
 
+  const exportExcel = () => {
+    const columns = ['user_type','full_name','nip','nik','username','division','phone_number','address','email','birth_date','nisn','nipd','barcode_id','gender','parent_name','parent_phone','role','status'];
+    const rows = users.map(user => Object.fromEntries(columns.map(column => [column, user[column] ?? (column === 'user_type' ? user.user_type : '')])));
+    const sheet = XLSX.utils.json_to_sheet(rows, { header: columns });
+    sheet['!cols'] = columns.map(column => ({ wch: Math.max(14, Math.min(28, column.length + 4)) }));
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, sheet, 'Users');
+    XLSX.writeFile(workbook, `nebula-users-${new Date().toISOString().slice(0,10)}.xlsx`);
+  };
+
+  const downloadTemplate = () => {
+    const columns = ['user_type','full_name','nip','nik','username','division','phone_number','address','email','birth_date','nisn','nipd','barcode_id','gender','parent_name','parent_phone','role'];
+    const examples = [
+      { user_type: 'TEACHER', full_name: 'Nama Guru', nip: 'NIP-GURU', username: 'NIP-GURU', division: 'X RPL 1', role: 'GURU' },
+      { user_type: 'STUDENT', full_name: 'Nama Siswa', nisn: 'NISN-SISWA', nipd: 'NIPD-SISWA', division: 'X RPL 1', gender: 'L', role: 'siswa' }
+    ];
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(examples, { header: columns }), 'Template Users');
+    XLSX.writeFile(workbook, 'template-import-users.xlsx');
+  };
+
+  const importExcel = async event => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+    if (!/\\.(xlsx|xls)$/i.test(file.name)) {
+      setNotice({ type: 'error', text: 'Pilih file Excel .xlsx atau .xls.' });
+      return;
+    }
+    setImporting(true);
+    setNotice(null);
+    setImportSummary(null);
+    try {
+      const workbook = XLSX.read(await file.arrayBuffer(), { type: 'array', cellDates: false });
+      const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+      if (!firstSheet) throw new Error('Workbook tidak memiliki lembar kerja.');
+      const records = XLSX.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
+      if (!records.length) throw new Error('Lembar kerja tidak berisi baris data.');
+      const res = await authFetch('/api/admin/users/import', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ records })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.result) throw new Error(data.message || 'Import Excel gagal diproses.');
+      setImportSummary(data.result);
+      setNotice({ type: data.result.failed ? 'error' : 'success', text: data.message || 'Import selesai.' });
+      await loadUsers();
+    } catch (error) {
+      setNotice({ type: 'error', text: error.message || 'File Excel gagal dibaca.' });
+    } finally { setImporting(false); }
+  };
+
   const updateProfileForm = (key, field, value) => setProfileForms(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } }));
 
   const saveProfile = async user => {
@@ -136,6 +191,9 @@ export default function AdminUsersTab() {
     </section>
 
     {notice && <div role="status" className={`rounded-xl border px-4 py-3 text-sm ${notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{notice.text}</div>}
+    {importSummary && <div className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-700"><strong>Ringkasan import:</strong> {importSummary.received} baris diterima · {importSummary.created} dibuat · {importSummary.updated} diperbarui · {importSummary.failed} gagal.
+      {importSummary.errors?.length > 0 && <ul className="mt-2 max-h-40 list-inside list-disc overflow-auto text-xs text-rose-700">{importSummary.errors.slice(0, 20).map((error, index) => <li key={index}>Baris {error.row} ({error.name}): {error.message}</li>)}</ul>}
+    </div>}
 
     <section className="rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
       <div className="flex items-center gap-2"><ShieldCheck size={19} className="text-sky-700" /><h3 className="font-bold text-slate-900">Akun administrator Portal</h3></div>
@@ -151,9 +209,17 @@ export default function AdminUsersTab() {
     <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div><h3 className="font-bold text-slate-900">Daftar pengguna</h3><p className="mt-1 text-sm text-slate-500">{filtered.length} akun ditampilkan · identitas tetap digunakan untuk relasi presensi</p></div>
-        <div className="flex flex-col gap-2 sm:flex-row">
-          <label className="relative"><Search size={16} className="absolute left-3 top-3 text-slate-400" /><input className={inputClass + ' pl-9'} placeholder="Cari nama / identitas…" value={query} onChange={e => setQuery(e.target.value)} /></label>
-          <select className={inputClass + ' sm:w-40'} value={kind} onChange={e => setKind(e.target.value)}><option value="ALL">Semua akun</option><option value="TEACHER">Guru / tendik</option><option value="STUDENT">Siswa</option></select>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={downloadTemplate} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-slate-700"><FileSpreadsheet size={15} /> Template Excel</button>
+            <button type="button" onClick={exportExcel} disabled={!users.length} className="inline-flex items-center justify-center gap-2 rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs font-bold text-sky-800 disabled:opacity-40"><Download size={15} /> Unduh data Excel</button>
+            <input ref={importInput} type="file" accept=".xlsx,.xls" className="hidden" onChange={importExcel} />
+            <button type="button" onClick={() => importInput.current?.click()} disabled={importing} className="inline-flex items-center justify-center gap-2 rounded-xl bg-sky-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50"><Upload size={15} />{importing ? 'Mengimpor…' : 'Import Excel'}</button>
+          </div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <label className="relative"><Search size={16} className="absolute left-3 top-3 text-slate-400" /><input className={inputClass + ' pl-9'} placeholder="Cari nama / identitas…" value={query} onChange={e => setQuery(e.target.value)} /></label>
+            <select className={inputClass + ' sm:w-40'} value={kind} onChange={e => setKind(e.target.value)}><option value="ALL">Semua akun</option><option value="TEACHER">Guru / tendik</option><option value="STUDENT">Siswa</option></select>
+          </div>
         </div>
       </div>
       {loading ? <p className="py-10 text-center text-sm text-slate-500">Memuat pengguna…</p> : filtered.length === 0 ? <p className="py-10 text-center text-sm text-slate-500">Tidak ada pengguna yang cocok.</p> :
