@@ -1719,7 +1719,9 @@ app.post('/api/admin/members/:id/parent-pin', requireAuth, requireRole('ADMIN'),
     if (!/^\d{6,12}$/.test(pin) || ['123456', '654321', '1234567890', '000000', '111111', '222222', '333333', '444444', '555555', '666666', '777777', '888888', '999999'].includes(pin)) {
         return res.status(400).json({ success: false, message: 'PIN harus terdiri dari 6 sampai 12 digit dan tidak boleh mudah ditebak.' });
     }
-    const member = db.prepare("SELECT id, full_name, role FROM members WHERE id = ? AND status = 'ACTIVE'").get(req.params.id);
+    const identifier = String(req.params.id || '').trim();
+    const member = db.prepare("SELECT id, full_name, role FROM members WHERE (id = ? OR nisn = ? OR nipd = ?) AND status = 'ACTIVE' LIMIT 1")
+        .get(identifier, identifier, identifier);
     if (!member || !['siswa', 'student', 'murid'].includes(String(member.role || '').trim().toLowerCase())) {
         return res.status(404).json({ success: false, message: 'Akun siswa aktif tidak ditemukan.' });
     }
