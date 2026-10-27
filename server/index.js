@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import bcrypt from 'bcryptjs';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import db from './conf/db.js';
 import { 
     createSession, 
@@ -87,12 +87,17 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use((req, res, next) => {
     if (!req.path.startsWith('/api')) return next();
     const startedAt = Date.now();
+    const suppliedId = String(req.headers['x-request-id'] || '').replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64);
+    const requestId = suppliedId || randomUUID();
+    req.requestId = requestId;
+    res.setHeader('X-Request-Id', requestId);
     res.on('finish', () => {
         const route = String(req.originalUrl || req.path).split('?')[0];
-        const line = `[${res.statusCode >= 400 ? 'Portal HTTP Error' : 'Portal HTTP'}] ${req.method} ${route} -> ${res.statusCode} (${Date.now() - startedAt}ms)`;
-        if (res.statusCode >= 500) console.error(line);
-        else if (res.statusCode >= 400) console.warn(line);
-        else console.info(line);
+        const durationMs = Date.now() - startedAt;
+        const line = `[Portal HTTP] reqId=${requestId} method=${req.method} route=${route} status=${res.statusCode} durationMs=${durationMs}`;
+        if (res.statusCode >= 500) console.error(`[ERROR] ${line}`);
+        else if (res.statusCode >= 400) console.warn(`[WARN] ${line}`);
+        else console.info(`[INFO] ${line}`);
     });
     next();
 });
