@@ -267,8 +267,12 @@ app.post('/api/auth/login', (req, res) => {
         teacher?.password_hash &&
         bcrypt.compareSync(String(secret), teacher.password_hash)
     );
+    if (teacher && !isTeacherPassMatch) {
+        console.warn(`[Auth Login] Akun guru ditemukan tetapi kata sandi tidak cocok (teacherId=${teacher.id}).`);
+    }
 
     if (teacher && isTeacherPassMatch) {
+        console.info(`[Auth Login] Login guru berhasil (teacherId=${teacher.id}).`);
         // Cek apakah guru adalah wali kelas
         const managed = db.prepare(`
             SELECT id, name FROM divisions 
@@ -1996,6 +2000,8 @@ app.post('/api/sync/push-members', (req, res) => {
     let skipped = 0;
     let deactivatedStudents = 0;
     let deactivatedTeachers = 0;
+    let teachersWithLoginCredentials = 0;
+    let teachersWithoutLoginCredentials = 0;
     const tx = db.transaction(() => {
         for (const m of members) {
             const role = String(m.role || '').trim().toLowerCase();
@@ -2009,6 +2015,8 @@ app.post('/api/sync/push-members', (req, res) => {
                     m.login_username &&
                     /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(String(m.login_password_hash || ''))
                 );
+                if (hasLoginCredentials) teachersWithLoginCredentials++;
+                else teachersWithoutLoginCredentials++;
                 const uname = hasLoginCredentials ? String(m.login_username).trim() : `guru.${usernameSuffix}`;
                 const passwordHash = hasLoginCredentials ? String(m.login_password_hash) : defaultGuruPass;
                 upsertTeacher.run(
@@ -2068,7 +2076,7 @@ app.post('/api/sync/push-members', (req, res) => {
         }
     });
     tx();
-    console.info(`[Portal Sync Members] Selesai: ${syncedIds.length} tersinkron, ${skipped} dilewati, ${deactivatedStudents} siswa dinonaktifkan, ${deactivatedTeachers} guru dinonaktifkan.`);
+    console.info(`[Portal Sync Members] Selesai: ${syncedIds.length} tersinkron, ${skipped} dilewati, ${deactivatedStudents} siswa dinonaktifkan, ${deactivatedTeachers} guru dinonaktifkan; akun guru dengan kredensial desktop=${teachersWithLoginCredentials}, tanpa kredensial=${teachersWithoutLoginCredentials}.`);
     res.json({
         success: skipped === 0,
         synced: syncedIds.length,
