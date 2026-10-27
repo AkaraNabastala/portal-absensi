@@ -64,7 +64,6 @@ function TeacherSubstituteTab() {
         <section className="space-y-5">
             <div className="flex flex-wrap items-center justify-between gap-3">
                 <div><h2 className="text-xl font-bold text-slate-900">Izin & Guru Pengganti</h2><p className="mt-1 text-sm text-slate-500">Tinjau izin dan tetapkan pengganti untuk jadwal mengajar.</p></div>
-                <button onClick={load} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700">Muat Ulang</button>
             </div>
             {feedback.message && <div role="status" className={`rounded-xl px-4 py-3 text-sm ${feedback.type === 'error' ? 'bg-rose-50 text-rose-700' : feedback.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-blue-50 text-blue-700'}`}>{feedback.message}</div>}
             <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
