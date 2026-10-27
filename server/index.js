@@ -1947,7 +1947,8 @@ app.post('/api/sync/push-members', (req, res) => {
             full_name = excluded.full_name,
             division = excluded.division,
             photo_url = COALESCE(excluded.photo_url, members.photo_url),
-            phone_number = excluded.phone_number
+            phone_number = excluded.phone_number,
+            status = 'ACTIVE'
     `);
 
     // NIP adalah identitas unik guru. Sinkronisasi berulang harus meng-update berdasarkan NIP,
