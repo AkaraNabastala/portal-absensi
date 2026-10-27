@@ -1890,19 +1890,42 @@ app.post('/api/sync/push-divisions', (req, res) => {
         return res.status(401).json({ success: false, message: 'Sync secret tidak valid.' });
     }
     const { divisions = [] } = req.body;
+    if (!Array.isArray(divisions) || divisions.some(d => !String(d?.name || '').trim())) {
+        return res.status(400).json({ success: false, message: 'Snapshot kelas tidak valid; tidak ada data yang diubah.' });
+    }
+
     const upsert = db.prepare(`
         INSERT INTO divisions (name, supervisor_name)
         VALUES (?, ?)
         ON CONFLICT(name) DO UPDATE SET supervisor_name = excluded.supervisor_name
     `);
+    const currentDivisions = db.prepare('SELECT id, name FROM divisions').all();
+    const incomingNames = new Set(divisions.map(d => String(d.name).trim()));
+    let removed = 0;
 
     const tx = db.transaction(() => {
         for (const d of divisions) {
-            upsert.run(d.name, d.supervisor_name || null);
+            upsert.run(String(d.name).trim(), d.supervisor_name || null);
+        }
+
+        // Desktop adalah sumber data utama: kelas yang sudah dihapus di desktop
+        // tidak dibiarkan muncul sebagai pilihan aktif di portal. Riwayat tetap utuh
+        // karena jurnal dan presensi menyimpan nama kelas sebagai snapshot teks.
+        const removeDivision = db.prepare('DELETE FROM divisions WHERE id = ?');
+        for (const row of currentDivisions) {
+            if (!incomingNames.has(String(row.name).trim())) {
+                removed += removeDivision.run(row.id).changes;
+            }
         }
     });
     tx();
-    res.json({ success: true, message: `${divisions.length} kelas berhasil disinkronkan.` });
+    db.prepare('UPDATE school_settings SET last_sync_at = CURRENT_TIMESTAMP WHERE id = 1').run();
+    res.json({
+        success: true,
+        synced: divisions.length,
+        removed,
+        message: `${divisions.length} kelas disinkronkan; ${removed} kelas lama yang tidak ada di desktop dihapus dari master portal.`
+    });
 });
 
 // 3. Terima Data Anggota Siswa & Guru dari Desktop
