@@ -3,6 +3,7 @@ import path from 'path';
 import os from 'os';
 import betterSqlite from 'better-sqlite3';
 import bcrypt from 'bcryptjs';
+import { randomBytes } from 'node:crypto';
 
 const NEBULA_DB_PATH = path.join(os.homedir(), '.nebula-presence-app', 'database.sqlite');
 
@@ -76,9 +77,10 @@ export function syncFromNebulaApp(portalDb, force = false) {
             const members = nebulaDb.prepare(`
                 SELECT m.id, m.identity_number as nipd, m.identity_reference as nisn,
                        m.full_name, m.role, m.rfid_code, m.photo, m.phone_number, d.name as division_name,
-                       d.supervisor_name
+                       d.supervisor_name, ta.username AS login_username, ta.password_hash AS login_password_hash
                 FROM members m
                 LEFT JOIN divisions d ON m.division_id = d.id
+                LEFT JOIN teacher_accounts ta ON ta.member_id = m.id AND ta.is_active = 1
             `).all();
 
             const findMember = portalDb.prepare(`
@@ -90,7 +92,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
             `);
 
             const defaultPinHash = bcrypt.hashSync('123456', 10);
-            const defaultGuruPassHash = bcrypt.hashSync('Guru2026!', 10);
+            const unavailableLoginHash = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
             const upsertMember = portalDb.prepare(`
                 INSERT INTO members (barcode_id, nipd, nisn, full_name, division, parent_pin_hash, parent_name, parent_phone, photo_url, role)
@@ -122,8 +124,10 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 INSERT INTO teachers (nip, username, password_hash, full_name, assigned_division, role)
                 VALUES (?, ?, ?, ?, ?, 'WALI_KELAS')
                 ON CONFLICT(nip) DO UPDATE SET
+                    username = CASE WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
+                    password_hash = CASE WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
                     full_name = excluded.full_name,
-                    assigned_division = excluded.assigned_division
+                    assigned_division = COALESCE(excluded.assigned_division, teachers.assigned_division)
             `);
 
             for (const m of members) {
@@ -133,7 +137,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
                 const nisnVal = rawNisn && String(rawNisn).trim() !== '' ? String(rawNisn).trim() : (nipdVal || `ID-${Date.now()}-${Math.floor(Math.random()*1000)}`);
                 const barcodeVal = m.rfid_code || nisnVal || nipdVal;
                 const nameVal = m.full_name || 'Anggota';
-                const roleVal = m.role ? String(m.role).toLowerCase() : 'siswa';
+                const roleVal = m.role ? String(m.role).normalize('NFKC').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ') : 'siswa';
                 const divisionVal = m.division_name || 'Umum';
                 const phoneVal = m.phone_number || null;
                 const photoVal = m.photo || null;
@@ -165,7 +169,7 @@ export function syncFromNebulaApp(portalDb, force = false) {
                     );
                 }
 
-                const isTeacher = ['guru', 'teacher', 'tendik', 'staff', 'pegawai'].includes(roleVal);
+                const isTeacher = new Set(['guru', 'guru mapel', 'guru mata pelajaran', 'guru kelas', 'teacher', 'pengajar', 'wali kelas', 'walikelas', 'tendik', 'staff', 'staf', 'pegawai', 'karyawan', 'penanggung jawab', 'koordinator']).has(roleVal);
                 if (isTeacher) {
                     const teacherNip = nipdVal || nisnVal;
                     const nonClass = ['Guru', 'Tendik', 'Staff', 'Pegawai', 'Umum', 'Karyawan', 'Semua', 'Semua Kelas'];
@@ -178,12 +182,18 @@ export function syncFromNebulaApp(portalDb, force = false) {
                     `).get(`%${nameVal}%`, nameVal);
                     const assignedClass = managedClass ? managedClass.name : (!nonClass.includes(divisionVal) ? divisionVal : null);
 
+                    const validBcryptHash = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(String(m.login_password_hash || ''));
+                    const hasLoginCredentials = Boolean(m.login_username && validBcryptHash);
+                    const loginUsername = hasLoginCredentials ? String(m.login_username).trim() : String(teacherNip);
+                    const loginPasswordHash = hasLoginCredentials ? String(m.login_password_hash) : unavailableLoginHash;
                     upsertTeacher.run(
                         teacherNip,
-                        teacherNip,
-                        defaultGuruPassHash,
+                        loginUsername,
+                        loginPasswordHash,
                         nameVal,
-                        assignedClass
+                        assignedClass,
+                        hasLoginCredentials ? 1 : 0,
+                        hasLoginCredentials ? 1 : 0
                     );
                 }
             }
