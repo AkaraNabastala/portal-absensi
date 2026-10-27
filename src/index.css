@@ -152,7 +152,7 @@ html[data-sky-phase="night"] {
 .portal-sky-canvas {
   background-color: var(--portal-sky-canvas) !important;
   background-image: radial-gradient(ellipse at 92% 8%, color-mix(in srgb, var(--portal-sky-accent) 10%, transparent) 0, transparent 34rem);
-  transition: background-color .9s ease, --portal-sky-accent 1.8s ease;
+  transition: background-color 16s linear, --portal-sky-accent 16s linear, --portal-sky-warm 16s linear;
 }
 .portal-topbar {
   background: linear-gradient(112deg, #10243b 0%, #1d4263 58%, var(--portal-sky-accent) 100%) !important;
@@ -224,14 +224,14 @@ html[data-sky-phase="night"] {
   pointer-events: none;
   background-image: var(--portal-sky-atmosphere);
   opacity: .9;
-  transition: opacity 1.2s ease;
+  transition: opacity 16s linear;
 }
 .portal-topbar {
   background-image: linear-gradient(112deg,
     #101c30 0%,
     color-mix(in srgb, var(--portal-sky-accent) 26%, #172943) 58%,
     color-mix(in srgb, var(--portal-sky-accent) 76%, #174a70) 100%) !important;
-  transition: background-image 1.2s ease, border-color 1.2s ease;
+  transition: background-image 1.2s ease, border-color 16s linear, --portal-sky-accent 16s linear;
 }
 @media (prefers-reduced-motion: reduce) {
   .portal-sky-canvas::before, .portal-topbar { transition: none !important; }
