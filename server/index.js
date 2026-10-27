@@ -182,10 +182,19 @@ app.get('/api/portal/info', (req, res) => {
 // ==========================================
 // First-run bootstrap: buat satu akun admin jika database masih belum memiliki kredensial admin.
 const isLocalDevelopmentSetup = (req) => {
-    // Do not infer local access in production: a reverse proxy may make every request appear local.
+    // Never infer local access in production. Also verify Host so a local reverse proxy
+    // serving a public hostname cannot accidentally bypass the setup key.
     if (process.env.NODE_ENV === 'production') return false;
     const address = String(req.socket?.remoteAddress || '').toLowerCase();
-    return ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
+    const localAddress = ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address);
+    let localHost = false;
+    try {
+        const host = new URL(`http://${req.headers.host || ''}`).hostname.toLowerCase();
+        localHost = ['localhost', '127.0.0.1', '::1'].includes(host);
+    } catch {
+        localHost = false;
+    }
+    return localAddress && localHost;
 };
 
 app.get('/api/auth/bootstrap-status', (req, res) => {
