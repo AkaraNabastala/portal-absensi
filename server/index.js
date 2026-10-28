@@ -2420,25 +2420,49 @@ app.post('/api/sync/push-members', (req, res) => {
     const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
     const upsertStudent = db.prepare(`
-        INSERT INTO members (barcode_id, nipd, nisn, full_name, role, division, photo_url, phone_number, parent_pin_hash, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+        INSERT INTO members (
+            barcode_id, nipd, nisn, full_name, role, division, photo_url, phone_number,
+            gender, birth_place, birth_date, religion, address, email, nationality,
+            child_order, siblings_count, previous_school, admission_date, parent_name,
+            parent_phone, guardian_name, guardian_relation, guardian_phone, parent_pin_hash, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
         ON CONFLICT(nisn) DO UPDATE SET
             barcode_id = excluded.barcode_id,
             nipd = excluded.nipd,
             full_name = excluded.full_name,
             division = excluded.division,
             photo_url = COALESCE(excluded.photo_url, members.photo_url),
-            phone_number = excluded.phone_number,
+            phone_number = COALESCE(excluded.phone_number, members.phone_number),
+            gender = COALESCE(excluded.gender, members.gender),
+            birth_place = COALESCE(excluded.birth_place, members.birth_place),
+            birth_date = COALESCE(excluded.birth_date, members.birth_date),
+            religion = COALESCE(excluded.religion, members.religion),
+            address = COALESCE(excluded.address, members.address),
+            email = COALESCE(excluded.email, members.email),
+            nationality = COALESCE(excluded.nationality, members.nationality),
+            child_order = COALESCE(excluded.child_order, members.child_order),
+            siblings_count = COALESCE(excluded.siblings_count, members.siblings_count),
+            previous_school = COALESCE(excluded.previous_school, members.previous_school),
+            admission_date = COALESCE(excluded.admission_date, members.admission_date),
+            parent_name = COALESCE(excluded.parent_name, members.parent_name),
+            parent_phone = COALESCE(excluded.parent_phone, members.parent_phone),
+            guardian_name = COALESCE(excluded.guardian_name, members.guardian_name),
+            guardian_relation = COALESCE(excluded.guardian_relation, members.guardian_relation),
+            guardian_phone = COALESCE(excluded.guardian_phone, members.guardian_phone),
             status = 'ACTIVE'
     `);
 
     // NIP adalah identitas unik guru. Sinkronisasi berulang harus meng-update berdasarkan NIP,
     // bukan username buatan dari nama, agar tidak gagal pada UNIQUE(teachers.nip).
     const upsertTeacher = db.prepare(`
-        INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, photo_url, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+        INSERT INTO teachers (
+            nip, nik, nuptk, username, password_hash, full_name, assigned_division, role,
+            phone_number, photo_url, gender, birth_place, birth_date, religion, address,
+            email, education, employment_status, rank_grade, tmt, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
         ON CONFLICT(nip) DO UPDATE SET
-            nik = excluded.nik,
+            nik = COALESCE(excluded.nik, teachers.nik),
+            nuptk = COALESCE(excluded.nuptk, teachers.nuptk),
             username = CASE WHEN teachers.portal_managed_credentials = 1 THEN teachers.username WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
             password_hash = CASE WHEN teachers.portal_managed_credentials = 1 THEN teachers.password_hash WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
             full_name = excluded.full_name,
@@ -2446,6 +2470,16 @@ app.post('/api/sync/push-members', (req, res) => {
             role = excluded.role,
             phone_number = COALESCE(excluded.phone_number, teachers.phone_number),
             photo_url = COALESCE(excluded.photo_url, teachers.photo_url),
+            gender = COALESCE(excluded.gender, teachers.gender),
+            birth_place = COALESCE(excluded.birth_place, teachers.birth_place),
+            birth_date = COALESCE(excluded.birth_date, teachers.birth_date),
+            religion = COALESCE(excluded.religion, teachers.religion),
+            address = COALESCE(excluded.address, teachers.address),
+            email = COALESCE(excluded.email, teachers.email),
+            education = COALESCE(excluded.education, teachers.education),
+            employment_status = COALESCE(excluded.employment_status, teachers.employment_status),
+            rank_grade = COALESCE(excluded.rank_grade, teachers.rank_grade),
+            tmt = COALESCE(excluded.tmt, teachers.tmt),
             status = 'ACTIVE'
     `);
 
@@ -2483,19 +2517,15 @@ app.post('/api/sync/push-members', (req, res) => {
                 const uname = hasLoginCredentials ? String(m.login_username).trim() : `guru.${usernameSuffix}`;
                 const passwordHash = hasLoginCredentials ? String(m.login_password_hash) : defaultGuruPass;
                 upsertTeacher.run(
-                    nip,
-                    nip,
-                    uname,
-                    passwordHash,
-                    m.full_name,
+                    nip, m.nik || m.nisn || null, m.nuptk || null, uname, passwordHash, m.full_name,
                     m.supervisor_name ? div : null,
                     role === 'tendik' ? 'TENDIK'
                         : (role.includes('wali') ? 'WALI_KELAS'
                         : (role.includes('penanggung') || role === 'koordinator' ? 'PENANGGUNG_JAWAB' : 'GURU')),
-                    m.phone_number || null,
-                    m.photo || null,
-                    hasLoginCredentials ? 1 : 0,
-                    hasLoginCredentials ? 1 : 0
+                    m.phone_number || null, m.photo || null, m.gender || null, m.birth_place || null,
+                    m.birth_date || null, m.religion || null, m.address || null, m.email || null,
+                    m.education || null, m.employment_status || null, m.rank_grade || null, m.tmt || null,
+                    hasLoginCredentials ? 1 : 0, hasLoginCredentials ? 1 : 0
                 );
                 syncedIds.push(m.id);
                 syncedTeacherNips.add(String(nip));
@@ -2507,14 +2537,14 @@ app.post('/api/sync/push-members', (req, res) => {
                 }
                 upsertStudent.run(
                     m.rfid_code || m.barcode_id || `BC-${m.id}`,
-                    m.nipd || null,
-                    m.nisn,
-                    m.full_name,
-                    'siswa',
-                    div,
-                    m.photo || null,
-                    m.phone_number || null,
-                    null
+                    m.nipd || null, m.nisn, m.full_name, 'siswa', div, m.photo || null, m.phone_number || null,
+                    m.gender || null, m.birth_place || null, m.birth_date || null, m.religion || null,
+                    m.address || null, m.email || null, m.nationality || null,
+                    m.child_order == null || m.child_order === '' ? null : Number(m.child_order),
+                    m.siblings_count == null || m.siblings_count === '' ? null : Number(m.siblings_count),
+                    m.previous_school || null, m.admission_date || null, m.parent_name || null,
+                    m.parent_phone || null, m.guardian_name || null, m.guardian_relation || null,
+                    m.guardian_phone || null, null
                 );
                 syncedIds.push(m.id);
                 syncedStudentIdentities.add(String(m.nisn));
