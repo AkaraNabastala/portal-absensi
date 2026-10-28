@@ -2438,7 +2438,7 @@ app.post('/api/sync/push-members', (req, res) => {
         // Pada sinkronisasi snapshot penuh, nonaktifkan identitas yang sudah tidak ada
         // di desktop. Riwayat presensi tetap dipertahankan, tidak dihapus permanen.
         if (full_snapshot && skipped === 0) {
-            const currentStudents = db.prepare("SELECT id, nisn FROM members WHERE status = 'ACTIVE'").all();
+            const currentStudents = db.prepare("SELECT id, nisn FROM members WHERE status = 'ACTIVE' AND COALESCE(portal_managed_credentials, 0) != 1").all();
             const deactivateStudent = db.prepare("UPDATE members SET status = 'INACTIVE' WHERE id = ?");
             for (const student of currentStudents) {
                 if (!syncedStudentIdentities.has(String(student.nisn))) {
@@ -2446,7 +2446,7 @@ app.post('/api/sync/push-members', (req, res) => {
                 }
             }
 
-            const currentTeachers = db.prepare("SELECT id, nip FROM teachers WHERE status = 'ACTIVE'").all();
+            const currentTeachers = db.prepare("SELECT id, nip FROM teachers WHERE status = 'ACTIVE' AND COALESCE(portal_managed_credentials, 0) != 1").all();
             const deactivateTeacher = db.prepare("UPDATE teachers SET status = 'INACTIVE' WHERE id = ?");
             for (const teacher of currentTeachers) {
                 if (!syncedTeacherNips.has(String(teacher.nip))) {
