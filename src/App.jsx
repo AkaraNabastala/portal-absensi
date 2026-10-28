@@ -14,13 +14,8 @@ import AdminDashboard from './pages/admin/Dashboard';
 
 // Komponen Pembungkus Portal Seragam (Admin, Guru, Siswa/Wali)
 function PortalLayout({ currentUser, onLogout, schoolInfo }) {
-  const [activeTab, setActiveTabState] = useState(() => {
-    try {
-      return localStorage.getItem('portal_active_tab') || 'overview';
-    } catch {
-      return 'overview';
-    }
-  });
+  // Setiap sesi login selalu dimulai dari dashboard; tab lama tidak boleh mengalihkan halaman awal.
+  const [activeTab, setActiveTabState] = useState('overview');
 
   const setActiveTab = (tab) => {
     setActiveTabState(tab);
