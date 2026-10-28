@@ -1,0 +1,32 @@
+import React from 'react';
+import { BookOpen, RefreshCw, Search } from 'lucide-react';
+import { authFetch } from '../../utils/api';
+
+const inputClass = 'rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 outline-none focus:border-sky-400 focus:ring-2 focus:ring-sky-100';
+export default function AdminSubjectAttendanceTab() {
+  const [rows, setRows] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [date, setDate] = React.useState(new Date().toISOString().slice(0,10));
+  const [query, setQuery] = React.useState('');
+  const [error, setError] = React.useState('');
+  const load = async () => {
+    setLoading(true); setError('');
+    try {
+      const res = await authFetch('/api/admin/subject-attendance?date=' + encodeURIComponent(date));
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Presensi mata pelajaran gagal dimuat.');
+      setRows(data.data || []);
+    } catch (e) { setError(e.message || 'Gagal memuat data.'); }
+    finally { setLoading(false); }
+  };
+  React.useEffect(() => { load(); }, [date]);
+  const filtered = rows.filter(row => [row.student_name,row.teacher_name,row.subject_name,row.division,row.status,row.topic].filter(Boolean).join(' ').toLowerCase().includes(query.toLowerCase()));
+  return <div className="space-y-5">
+    <section className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50 p-5 sm:p-7"><div className="flex items-start gap-3"><span className="rounded-xl bg-sky-100 p-3 text-sky-800"><BookOpen size={22}/></span><div><h2 className="text-xl font-extrabold text-slate-900">Monitoring Presensi Mata Pelajaran</h2><p className="mt-1 text-sm text-slate-600">Pantau kehadiran siswa pada pertemuan yang dicatat guru melalui jurnal mengajar.</p></div></div></section>
+    <section className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between"><div className="flex flex-wrap gap-2"><label className="text-xs font-bold text-slate-600">Tanggal<input className={inputClass+' mt-1 block'} type="date" value={date} onChange={e=>setDate(e.target.value)}/></label><label className="relative self-end"><Search size={15} className="absolute left-3 top-3 text-slate-400"/><input className={inputClass+' pl-9'} placeholder="Cari siswa, guru, mapel..." value={query} onChange={e=>setQuery(e.target.value)}/></label></div><button onClick={load} disabled={loading} className="inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-sm font-semibold"><RefreshCw size={15} className={loading?'animate-spin':''}/>Muat ulang</button></div>
+      {error&&<p role="alert" className="mt-4 rounded-lg bg-rose-50 p-3 text-sm text-rose-700">{error}</p>}
+      {loading?<p className="py-10 text-center text-sm text-slate-500">Memuat presensi…</p>:<div className="mt-4 overflow-x-auto rounded-xl border border-slate-100"><table className="min-w-full text-left text-sm"><thead className="bg-slate-50 text-xs uppercase text-slate-500"><tr>{['Siswa','Kelas','Mata pelajaran','Guru','Materi','Status','Catatan'].map(x=><th key={x} className="whitespace-nowrap px-3 py-3">{x}</th>)}</tr></thead><tbody>{filtered.map(row=><tr key={row.id} className="border-t border-slate-100"><td className="whitespace-nowrap px-3 py-3 font-semibold text-slate-800">{row.student_name}</td><td className="px-3 py-3">{row.division}</td><td className="px-3 py-3">{row.subject_name}</td><td className="px-3 py-3">{row.teacher_name}</td><td className="px-3 py-3">{row.topic||'-'}</td><td className="px-3 py-3"><span className="rounded-full bg-sky-50 px-2 py-1 text-xs font-bold text-sky-800">{row.status}</span></td><td className="px-3 py-3">{row.note||'-'}</td></tr>)}</tbody></table>{!filtered.length&&<p className="p-8 text-center text-sm text-slate-500">Belum ada data presensi mapel pada tanggal ini.</p>}</div>}
+    </section>
+  </div>;
+}
