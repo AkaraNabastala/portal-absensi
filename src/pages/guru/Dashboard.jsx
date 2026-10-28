@@ -17,6 +17,8 @@ import ClassMonthlyTab from './ClassMonthlyTab';
 import ClassLeaveTab from './ClassLeaveTab';
 import ClassStudentsTab from './ClassStudentsTab';
 import TeacherJournalTab from './TeacherJournalTab';
+import TeacherScheduleTab from './TeacherScheduleTab';
+import TeacherSubjectAttendanceTab from './TeacherSubjectAttendanceTab';
 import TeacherEkskulTab from './TeacherEkskulTab';
 
 export default function GuruDashboard({ 
@@ -484,6 +486,10 @@ export default function GuruDashboard({
                     schoolInfo={schoolInfo}
                 />
             )}
+
+            {activeTab === 'teacher_schedule' && <TeacherScheduleTab />}
+
+            {activeTab === 'teacher_subject_attendance' && <TeacherSubjectAttendanceTab />}
 
             {activeTab === 'teacher_absence' && (
                 <section className="space-y-5">

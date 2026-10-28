@@ -1,5 +1,29 @@
-import React from 'react';
-import { GraduationCap } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import {
+    UserRound, Save, LoaderCircle, GraduationCap, BadgeCheck, MapPin,
+    CalendarDays, Mail, Phone, BookOpen, BriefcaseBusiness, ShieldCheck
+} from 'lucide-react';
+import { toast } from 'react-toastify';
+import { authFetch } from '../../utils/api';
+
+const fields = [
+    { name: 'full_name', label: 'Nama lengkap', type: 'text', required: true },
+    { name: 'nik', label: 'NIK', type: 'text' },
+    { name: 'nuptk', label: 'NUPTK', type: 'text' },
+    { name: 'gender', label: 'Jenis kelamin', type: 'select', options: [['', 'Pilih jenis kelamin'], ['L', 'Laki-laki'], ['P', 'Perempuan']] },
+    { name: 'birth_place', label: 'Tempat lahir', type: 'text' },
+    { name: 'birth_date', label: 'Tanggal lahir', type: 'date' },
+    { name: 'religion', label: 'Agama', type: 'select', options: [['', 'Pilih agama'], ['Islam', 'Islam'], ['Kristen', 'Kristen'], ['Katolik', 'Katolik'], ['Hindu', 'Hindu'], ['Buddha', 'Buddha'], ['Konghucu', 'Konghucu'], ['Lainnya', 'Lainnya']] },
+    { name: 'email', label: 'Email', type: 'email' },
+    { name: 'phone_number', label: 'Nomor HP / WhatsApp', type: 'tel' },
+    { name: 'address', label: 'Alamat lengkap', type: 'textarea' },
+    { name: 'education', label: 'Pendidikan terakhir', type: 'text' },
+    { name: 'employment_status', label: 'Status kepegawaian', type: 'select', options: [['', 'Pilih status'], ['PNS', 'PNS'], ['PPPK', 'PPPK'], ['GTY', 'Guru Tetap Yayasan'], ['GTT', 'Guru Tidak Tetap'], ['Honorer', 'Honorer'], ['Non-ASN', 'Non-ASN'], ['Lainnya', 'Lainnya']] },
+    { name: 'rank_grade', label: 'Pangkat / golongan', type: 'text' },
+    { name: 'tmt', label: 'TMT / mulai bertugas', type: 'date' }
+];
+
+const emptyForm = Object.fromEntries(fields.map(({ name }) => [name, '']));
 
 export default function TeacherProfileTab({
     teacher = {},
@@ -8,79 +32,98 @@ export default function TeacherProfileTab({
     currentDivision = '',
     teacherTitle = 'Dewan Guru'
 }) {
-    return (
-        <div className="max-w-2xl mx-auto bg-white border border-slate-200/80 rounded-3xl p-6 sm:p-8 shadow-xs space-y-6">
-            <div className="flex items-center gap-6 pb-6 border-b border-slate-100">
-                <div className="w-24 h-32 rounded-xl overflow-hidden border border-slate-200 shadow-sm bg-blue-50 shrink-0 relative flex items-center justify-center">
-                    <span className="text-blue-600 text-4xl font-black select-none">
-                        {teacher.full_name?.charAt(0) || 'G'}
-                    </span>
-                    {teacher.photo_url && (
-                        <img
-                            src={teacher.photo_url}
-                            alt={teacher.full_name}
-                            className="absolute inset-0 w-full h-full object-cover object-center bg-white"
-                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                        />
-                    )}
-                </div>
-                <div>
-                    <span className="text-xs font-bold text-blue-600 uppercase tracking-wider block">
-                        {teacherTitle}
-                    </span>
-                    <h3 className="text-2xl font-black text-slate-900 mt-1">
-                        {teacher.full_name}
-                    </h3>
-                    <p className="text-sm text-slate-500 mt-1">
-                        NIP: <b className="font-mono text-slate-800">{teacher.nip || '-'}</b>
-                    </p>
-                    {isWaliKelas && (
-                        <p className="text-sm text-blue-700 font-bold mt-1 flex items-center gap-1.5">
-                            <GraduationCap className="w-4 h-4" />
-                            Wali Kelas: {currentDivision}
-                        </p>
-                    )}
-                </div>
-            </div>
+    const [form, setForm] = useState(emptyForm);
+    const [saving, setSaving] = useState(false);
+    const profile = personalData?.teacher || personalData?.student || teacher || {};
 
-            <div className="space-y-3.5 text-sm">
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">NIP Guru</span>
-                    <span className="font-mono font-bold text-slate-900">{teacher.nip || '-'}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">NIK / NUPTK</span>
-                    <span className="font-mono font-bold text-slate-900">{teacher.nik || '-'}</span>
-                </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">Tugas Pokok</span>
-                    <span className="font-bold text-slate-900">{teacherTitle}</span>
-                </div>
-                {isWaliKelas && (
-                    <div className="flex justify-between py-2 border-b border-slate-100">
-                        <span className="text-slate-500">Kelas Binaan</span>
-                        <span className="font-bold text-blue-700">{currentDivision}</span>
+    useEffect(() => {
+        setForm(Object.fromEntries(fields.map(({ name }) => [name, profile?.[name] == null ? '' : String(profile[name])])));
+    }, [profile?.id, profile?.full_name, profile?.nik, profile?.nuptk, profile?.gender, profile?.birth_place, profile?.birth_date, profile?.religion, profile?.email, profile?.phone_number, profile?.address, profile?.education, profile?.employment_status, profile?.rank_grade, profile?.tmt]);
+
+    const update = (event) => setForm((previous) => ({ ...previous, [event.target.name]: event.target.value }));
+
+    const saveProfile = async (event) => {
+        event.preventDefault();
+        if (!teacher?.id) {
+            toast.error('Identitas akun guru tidak ditemukan.');
+            return;
+        }
+        if (!form.full_name.trim()) {
+            toast.error('Nama lengkap wajib diisi.');
+            return;
+        }
+        setSaving(true);
+        try {
+            const response = await authFetch(`/api/teacher/personal-details/${teacher.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(form)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.message || 'Biodata gagal disimpan.');
+            setForm(Object.fromEntries(fields.map(({ name }) => [name, result.teacher?.[name] == null ? '' : String(result.teacher[name])])));
+            toast.success('Biodata guru berhasil disimpan.');
+        } catch (error) {
+            toast.error(error.message || 'Tidak dapat menyimpan biodata.');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    return (
+        <div className="max-w-5xl mx-auto space-y-5">
+            <section className="bg-white border border-slate-200 rounded-3xl p-5 sm:p-7 shadow-sm">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-5 pb-6 border-b border-slate-100">
+                    <div className="w-24 h-28 rounded-2xl overflow-hidden border border-slate-200 bg-blue-50 shrink-0 relative flex items-center justify-center">
+                        <span className="text-blue-700 text-4xl font-black">{profile.full_name?.charAt(0) || 'G'}</span>
+                        {profile.photo_url && <img src={profile.photo_url} alt={profile.full_name || 'Foto guru'} className="absolute inset-0 w-full h-full object-cover" onError={(event) => { event.currentTarget.style.display = 'none'; }} />}
                     </div>
-                )}
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">Nomor HP (WhatsApp)</span>
-                    <span className="font-mono font-bold text-emerald-600">
-                        {teacher.phone_number || personalData?.student?.phone_number || '-'}
-                    </span>
+                    <div className="min-w-0 flex-1">
+                        <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
+                            <BadgeCheck className="w-3.5 h-3.5" /> Biodata Pendidik
+                        </span>
+                        <h2 className="text-2xl font-black text-slate-900 mt-2">{profile.full_name || teacher.full_name || 'Profil Guru'}</h2>
+                        <p className="text-sm text-slate-500 mt-1">Lengkapi data identitas dan kepegawaian. Perubahan disimpan ke server Portal.</p>
+                        <div className="flex flex-wrap gap-2 mt-3">
+                            <span className="text-xs bg-slate-100 text-slate-700 rounded-lg px-2.5 py-1 font-semibold">NIP: {profile.nip || teacher.nip || '-'}</span>
+                            <span className="text-xs bg-slate-100 text-slate-700 rounded-lg px-2.5 py-1 font-semibold">{teacherTitle}</span>
+                            {isWaliKelas && <span className="text-xs bg-indigo-50 text-indigo-700 rounded-lg px-2.5 py-1 font-semibold inline-flex items-center gap-1"><GraduationCap className="w-3.5 h-3.5" /> Wali kelas {currentDivision}</span>}
+                        </div>
+                    </div>
                 </div>
-                <div className="flex justify-between py-2 border-b border-slate-100">
-                    <span className="text-slate-500">ID Telegram</span>
-                    <span className="font-mono font-bold text-blue-600">
-                        {teacher.telegram_chat_id || personalData?.student?.telegram_chat_id || '-'}
-                    </span>
-                </div>
-                <div className="flex justify-between py-2">
-                    <span className="text-slate-500">Status</span>
-                    <span className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-bold text-xs">
-                        Aktif
-                    </span>
-                </div>
-            </div>
+                <form onSubmit={saveProfile} className="pt-6">
+                    <div className="flex items-center gap-2 mb-4">
+                        <UserRound className="w-5 h-5 text-blue-600" />
+                        <h3 className="font-bold text-slate-900">Identitas dan Biodata Lengkap</h3>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {fields.map((field) => (
+                            <label key={field.name} className={`block ${field.type === 'textarea' ? 'md:col-span-2' : ''}`}>
+                                <span className="block text-xs font-bold text-slate-600 mb-1.5">{field.label}{field.required ? ' *' : ''}</span>
+                                {field.type === 'textarea' ? (
+                                    <textarea name={field.name} value={form[field.name]} onChange={update} rows={3} maxLength={2000} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder={`Masukkan ${field.label.toLowerCase()}`} />
+                                ) : field.type === 'select' ? (
+                                    <select name={field.name} value={form[field.name]} onChange={update} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100">
+                                        {field.options.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                                    </select>
+                                ) : (
+                                    <input name={field.name} type={field.type} value={form[field.name]} onChange={update} required={field.required} maxLength={field.type === 'date' ? undefined : 180} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3.5 py-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100" placeholder={field.type === 'date' ? undefined : `Masukkan ${field.label.toLowerCase()}`} />
+                                )}
+                            </label>
+                        ))}
+                        <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4 md:col-span-2 flex gap-3 text-sm text-blue-900">
+                            <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
+                            <p>NIP dan data akun login ditampilkan sebagai identitas tetap. Kata sandi tidak ditampilkan di halaman biodata.</p>
+                        </div>
+                    </div>
+                    <div className="flex justify-end mt-5">
+                        <button type="submit" disabled={saving} className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 hover:bg-blue-700 disabled:opacity-60 text-white px-5 py-3 text-sm font-bold shadow-sm transition">
+                            {saving ? <LoaderCircle className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            {saving ? 'Menyimpan…' : 'Simpan Biodata'}
+                        </button>
+                    </div>
+                </form>
+            </section>
         </div>
     );
 }

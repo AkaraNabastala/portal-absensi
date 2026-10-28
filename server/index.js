@@ -1286,6 +1286,60 @@ app.post('/api/admin/absence-requests/:id/assign', requireAuth, (req, res) => {
     res.json({ success: true, message: `${substitute.full_name} ditetapkan sebagai guru pengganti.` });
 });
 
+// Biodata guru menggunakan tabel teachers; jangan arahkan guru ke endpoint biodata siswa.
+app.get('/api/teacher/personal-details/:teacherId', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
+    const teacherId = Number(req.params.teacherId);
+    if (!Number.isInteger(teacherId) || teacherId < 1) {
+        return res.status(400).json({ success: false, message: 'ID guru tidak valid.' });
+    }
+    if (req.user.role === 'TEACHER' && Number(req.user.userId) !== teacherId) {
+        return res.status(403).json({ success: false, message: 'Guru hanya dapat melihat biodatanya sendiri.' });
+    }
+    const teacher = db.prepare(`
+        SELECT id, nip, nik, nuptk, username, full_name, gender, birth_place, birth_date,
+               religion, address, email, education, employment_status, rank_grade, tmt,
+               assigned_division, role, photo_url, phone_number, status, created_at
+        FROM teachers WHERE id = ?
+    `).get(teacherId);
+    if (!teacher) return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
+    res.json({
+        success: true, student: teacher, teacher,
+        todayLog: null, logs: [], leaves: [],
+        stats: { hadir: 0, terlambat: 0, izin: 0, sakit: 0, alpa: 0 },
+        attendancePercentage: 100,
+        currentMonth: new Date().toISOString().slice(0, 7)
+    });
+});
+
+app.put('/api/teacher/personal-details/:teacherId', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
+    const teacherId = Number(req.params.teacherId);
+    if (!Number.isInteger(teacherId) || teacherId < 1) {
+        return res.status(400).json({ success: false, message: 'ID guru tidak valid.' });
+    }
+    if (req.user.role === 'TEACHER' && Number(req.user.userId) !== teacherId) {
+        return res.status(403).json({ success: false, message: 'Guru hanya dapat mengubah biodatanya sendiri.' });
+    }
+    const allowed = ['full_name', 'nik', 'nuptk', 'gender', 'birth_place', 'birth_date', 'religion',
+        'address', 'email', 'phone_number', 'education', 'employment_status', 'rank_grade', 'tmt'];
+    const updates = allowed.filter((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key));
+    if (!updates.length) return res.status(400).json({ success: false, message: 'Tidak ada data biodata yang dikirim.' });
+    const values = updates.map((key) => {
+        const value = req.body[key];
+        return value === null || value === undefined || String(value).trim() === '' ? null : String(value).trim();
+    });
+    const exists = db.prepare('SELECT id FROM teachers WHERE id = ?').get(teacherId);
+    if (!exists) return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
+    db.prepare(`UPDATE teachers SET ${updates.map((key) => `${key} = ?`).join(', ')} WHERE id = ?`).run(...values, teacherId);
+    const teacher = db.prepare(`
+        SELECT id, nip, nik, nuptk, username, full_name, gender, birth_place, birth_date,
+               religion, address, email, education, employment_status, rank_grade, tmt,
+               assigned_division, role, photo_url, phone_number, status, created_at
+        FROM teachers WHERE id = ?
+    `).get(teacherId);
+    logAudit(db, req, 'UPDATE_TEACHER_PROFILE', 'teachers', teacherId, 'Biodata guru diperbarui');
+    res.json({ success: true, message: 'Biodata guru berhasil diperbarui.', teacher, student: teacher });
+});
+
 app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details/:studentId'], requireAuth, (req, res) => {
     const { studentId } = req.params;
     const today = new Date().toISOString().split('T')[0];
@@ -1296,7 +1350,7 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
         return res.status(403).json({ success: false, message: 'Akses ditolak.' });
     }
 
-    const student = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, division, parent_name, parent_phone, phone_number, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
+    const student = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, birth_place, birth_date, religion, address, email, nationality, child_order, siblings_count, previous_school, admission_date, division, parent_name, parent_phone, guardian_name, guardian_relation, guardian_phone, phone_number, telegram_chat_id, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
     }
@@ -1331,6 +1385,40 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
         attendancePercentage: pct,
         currentMonth: month
     });
+});
+
+app.put('/api/member/personal-details/:studentId', requireAuth, (req, res) => {
+    const studentId = Number(req.params.studentId);
+    if (!Number.isInteger(studentId) || studentId < 1) return res.status(400).json({ success: false, message: 'ID siswa tidak valid.' });
+    if (req.user.role === 'PARENT' && Number(req.user.userId) !== studentId) {
+        return res.status(403).json({ success: false, message: 'Wali hanya dapat mengubah biodata siswa yang terhubung ke akunnya.' });
+    }
+    const student = db.prepare('SELECT id, division FROM members WHERE id = ?').get(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
+    }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    const allowed = ['full_name', 'gender', 'birth_place', 'birth_date', 'religion', 'address', 'email',
+        'phone_number', 'parent_name', 'parent_phone', 'guardian_name', 'guardian_relation',
+        'guardian_phone', 'nationality', 'child_order', 'siblings_count', 'previous_school', 'admission_date'];
+    const updates = allowed.filter((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key));
+    if (!updates.length) return res.status(400).json({ success: false, message: 'Tidak ada data biodata yang dikirim.' });
+    const values = updates.map((key) => {
+        const value = req.body[key];
+        if (value === null || value === undefined || String(value).trim() === '') return null;
+        if (['child_order', 'siblings_count'].includes(key)) {
+            const number = Number(value);
+            return Number.isInteger(number) && number >= 0 ? number : null;
+        }
+        return String(value).trim();
+    });
+    db.prepare(`UPDATE members SET ${updates.map((key) => `${key} = ?`).join(', ')} WHERE id = ?`).run(...values, studentId);
+    const updated = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, birth_place, birth_date, religion, address, email, nationality, child_order, siblings_count, previous_school, admission_date, division, parent_name, parent_phone, guardian_name, guardian_relation, guardian_phone, phone_number, telegram_chat_id, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
+    logAudit(db, req, 'UPDATE_STUDENT_PROFILE', 'members', studentId, 'Biodata siswa diperbarui');
+    res.json({ success: true, message: 'Biodata siswa berhasil diperbarui.', student: updated });
 });
 
 // Pengajuan Izin Siswa
@@ -2193,6 +2281,9 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
     const schedules = req.body?.schedules;
     if (!Array.isArray(schedules)) return res.status(400).json({ success: false, message: 'Data jadwal harus berupa array.' });
     if (schedules.length > 5000) return res.status(413).json({ success: false, message: 'Batch jadwal terlalu besar.' });
+    const sourceCount = Number.isFinite(Number(req.body?.source_count)) ? Number(req.body.source_count) : schedules.length;
+    const invalidSourceCount = Math.max(0, Number(req.body?.invalid_count) || 0);
+    const incompleteSnapshot = invalidSourceCount > 0 || sourceCount !== schedules.length;
     const findTeacher = db.prepare('SELECT id FROM teachers WHERE nip = ? OR nip = ? LIMIT 1');
     const upsertSchedule = db.prepare(`
         INSERT INTO teaching_schedules
@@ -2230,7 +2321,7 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
         // Rekonsiliasi snapshot hanya aman jika setiap jadwal sumber berhasil dipetakan.
         // Jika ada jadwal yang dilewati, jangan menonaktifkan jadwal lama: itu bisa
         // menghapus jadwal valid hanya karena identitas guru belum cocok.
-        if (skipped === 0) {
+        if (skipped === 0 && !incompleteSnapshot) {
             const activeRemoteIds = [...syncedRemoteIds];
             const result = activeRemoteIds.length
                 ? db.prepare(`UPDATE teaching_schedules SET is_active = 0
@@ -2243,13 +2334,14 @@ app.post('/api/sync/push-teaching-schedules', (req, res) => {
     });
     try {
         tx();
-        const success = skipped === 0;
+        const effectiveSkipped = skipped + invalidSourceCount;
+        const success = effectiveSkipped === 0 && !incompleteSnapshot;
         res.json({
-            success, synced, skipped, disabled,
-            reconciled: skipped === 0,
+            success, synced, skipped: effectiveSkipped, disabled,
+            reconciled: skipped === 0 && !incompleteSnapshot,
             message: success
                 ? `${synced} jadwal dari Nebula disinkronkan; ${disabled} jadwal lama yang tidak ada di sumber dinonaktifkan.`
-                : `${synced} jadwal berhasil disinkronkan, ${skipped} dilewati. Jadwal lama dipertahankan agar tidak hilang; periksa identitas guru dan data jadwal lalu sinkronkan ulang.`
+                : `${synced} jadwal valid disinkronkan, ${effectiveSkipped} jadwal bermasalah. Snapshot tidak lengkap; jadwal Portal yang sudah ada dipertahankan agar tidak hilang. Periksa relasi guru, kelas, mata pelajaran, lalu sinkronkan ulang.`
         });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Gagal menyinkronkan jadwal: ' + error.message });
@@ -2332,25 +2424,49 @@ app.post('/api/sync/push-members', (req, res) => {
     const defaultGuruPass = bcrypt.hashSync(randomBytes(32).toString('hex'), 10);
 
     const upsertStudent = db.prepare(`
-        INSERT INTO members (barcode_id, nipd, nisn, full_name, role, division, photo_url, phone_number, parent_pin_hash, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+        INSERT INTO members (
+            barcode_id, nipd, nisn, full_name, role, division, photo_url, phone_number,
+            gender, birth_place, birth_date, religion, address, email, nationality,
+            child_order, siblings_count, previous_school, admission_date, parent_name,
+            parent_phone, guardian_name, guardian_relation, guardian_phone, parent_pin_hash, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
         ON CONFLICT(nisn) DO UPDATE SET
             barcode_id = excluded.barcode_id,
             nipd = excluded.nipd,
             full_name = excluded.full_name,
             division = excluded.division,
             photo_url = COALESCE(excluded.photo_url, members.photo_url),
-            phone_number = excluded.phone_number,
+            phone_number = COALESCE(excluded.phone_number, members.phone_number),
+            gender = COALESCE(excluded.gender, members.gender),
+            birth_place = COALESCE(excluded.birth_place, members.birth_place),
+            birth_date = COALESCE(excluded.birth_date, members.birth_date),
+            religion = COALESCE(excluded.religion, members.religion),
+            address = COALESCE(excluded.address, members.address),
+            email = COALESCE(excluded.email, members.email),
+            nationality = COALESCE(excluded.nationality, members.nationality),
+            child_order = COALESCE(excluded.child_order, members.child_order),
+            siblings_count = COALESCE(excluded.siblings_count, members.siblings_count),
+            previous_school = COALESCE(excluded.previous_school, members.previous_school),
+            admission_date = COALESCE(excluded.admission_date, members.admission_date),
+            parent_name = COALESCE(excluded.parent_name, members.parent_name),
+            parent_phone = COALESCE(excluded.parent_phone, members.parent_phone),
+            guardian_name = COALESCE(excluded.guardian_name, members.guardian_name),
+            guardian_relation = COALESCE(excluded.guardian_relation, members.guardian_relation),
+            guardian_phone = COALESCE(excluded.guardian_phone, members.guardian_phone),
             status = 'ACTIVE'
     `);
 
     // NIP adalah identitas unik guru. Sinkronisasi berulang harus meng-update berdasarkan NIP,
     // bukan username buatan dari nama, agar tidak gagal pada UNIQUE(teachers.nip).
     const upsertTeacher = db.prepare(`
-        INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, photo_url, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
+        INSERT INTO teachers (
+            nip, nik, nuptk, username, password_hash, full_name, assigned_division, role,
+            phone_number, photo_url, gender, birth_place, birth_date, religion, address,
+            email, education, employment_status, rank_grade, tmt, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
         ON CONFLICT(nip) DO UPDATE SET
-            nik = excluded.nik,
+            nik = COALESCE(excluded.nik, teachers.nik),
+            nuptk = COALESCE(excluded.nuptk, teachers.nuptk),
             username = CASE WHEN teachers.portal_managed_credentials = 1 THEN teachers.username WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
             password_hash = CASE WHEN teachers.portal_managed_credentials = 1 THEN teachers.password_hash WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
             full_name = excluded.full_name,
@@ -2358,6 +2474,16 @@ app.post('/api/sync/push-members', (req, res) => {
             role = excluded.role,
             phone_number = COALESCE(excluded.phone_number, teachers.phone_number),
             photo_url = COALESCE(excluded.photo_url, teachers.photo_url),
+            gender = COALESCE(excluded.gender, teachers.gender),
+            birth_place = COALESCE(excluded.birth_place, teachers.birth_place),
+            birth_date = COALESCE(excluded.birth_date, teachers.birth_date),
+            religion = COALESCE(excluded.religion, teachers.religion),
+            address = COALESCE(excluded.address, teachers.address),
+            email = COALESCE(excluded.email, teachers.email),
+            education = COALESCE(excluded.education, teachers.education),
+            employment_status = COALESCE(excluded.employment_status, teachers.employment_status),
+            rank_grade = COALESCE(excluded.rank_grade, teachers.rank_grade),
+            tmt = COALESCE(excluded.tmt, teachers.tmt),
             status = 'ACTIVE'
     `);
 
@@ -2395,19 +2521,15 @@ app.post('/api/sync/push-members', (req, res) => {
                 const uname = hasLoginCredentials ? String(m.login_username).trim() : `guru.${usernameSuffix}`;
                 const passwordHash = hasLoginCredentials ? String(m.login_password_hash) : defaultGuruPass;
                 upsertTeacher.run(
-                    nip,
-                    nip,
-                    uname,
-                    passwordHash,
-                    m.full_name,
+                    nip, m.nik || m.nisn || null, m.nuptk || null, uname, passwordHash, m.full_name,
                     m.supervisor_name ? div : null,
                     role === 'tendik' ? 'TENDIK'
                         : (role.includes('wali') ? 'WALI_KELAS'
                         : (role.includes('penanggung') || role === 'koordinator' ? 'PENANGGUNG_JAWAB' : 'GURU')),
-                    m.phone_number || null,
-                    m.photo || null,
-                    hasLoginCredentials ? 1 : 0,
-                    hasLoginCredentials ? 1 : 0
+                    m.phone_number || null, m.photo || null, m.gender || null, m.birth_place || null,
+                    m.birth_date || null, m.religion || null, m.address || null, m.email || null,
+                    m.education || null, m.employment_status || null, m.rank_grade || null, m.tmt || null,
+                    hasLoginCredentials ? 1 : 0, hasLoginCredentials ? 1 : 0
                 );
                 syncedIds.push(m.id);
                 syncedTeacherNips.add(String(nip));
@@ -2419,14 +2541,14 @@ app.post('/api/sync/push-members', (req, res) => {
                 }
                 upsertStudent.run(
                     m.rfid_code || m.barcode_id || `BC-${m.id}`,
-                    m.nipd || null,
-                    m.nisn,
-                    m.full_name,
-                    'siswa',
-                    div,
-                    m.photo || null,
-                    m.phone_number || null,
-                    null
+                    m.nipd || null, m.nisn, m.full_name, 'siswa', div, m.photo || null, m.phone_number || null,
+                    m.gender || null, m.birth_place || null, m.birth_date || null, m.religion || null,
+                    m.address || null, m.email || null, m.nationality || null,
+                    m.child_order == null || m.child_order === '' ? null : Number(m.child_order),
+                    m.siblings_count == null || m.siblings_count === '' ? null : Number(m.siblings_count),
+                    m.previous_school || null, m.admission_date || null, m.parent_name || null,
+                    m.parent_phone || null, m.guardian_name || null, m.guardian_relation || null,
+                    m.guardian_phone || null, null
                 );
                 syncedIds.push(m.id);
                 syncedStudentIdentities.add(String(m.nisn));

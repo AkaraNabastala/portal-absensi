@@ -109,6 +109,9 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
         {
             section: 'Menu Guru',
             items: [
+                { id: 'teacher_schedule', label: 'Jadwal Mengajar', desc: 'Jadwal mingguan guru', icon: CalendarDays },
+                { id: 'teacher_journal', label: 'Jurnal Mengajar', desc: 'Input jurnal dan presensi per pertemuan', icon: BookOpen },
+                { id: 'teacher_subject_attendance', label: 'Presensi Mapel', desc: 'Rekap presensi setiap mata pelajaran', icon: BookOpen },
                 { id: 'leave', label: 'Izin Pribadi', desc: 'Permohonan izin guru', icon: FileText },
                 { id: 'profile', label: 'Biodata Guru', desc: 'Profil data pengajar', icon: User },
             ]
@@ -117,6 +120,9 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
         {
             section: 'Menu Guru',
             items: [
+                { id: 'teacher_schedule', label: 'Jadwal Mengajar', desc: 'Jadwal mingguan guru', icon: CalendarDays },
+                { id: 'teacher_journal', label: 'Jurnal Mengajar', desc: 'Input jurnal dan presensi per pertemuan', icon: BookOpen },
+                { id: 'teacher_subject_attendance', label: 'Presensi Mapel', desc: 'Rekap presensi setiap mata pelajaran', icon: BookOpen },
                 { id: 'leave', label: 'Izin Pribadi', desc: 'Permohonan izin guru', icon: FileText },
                 { id: 'profile', label: 'Biodata Guru', desc: 'Profil data pengajar', icon: User },
             ]

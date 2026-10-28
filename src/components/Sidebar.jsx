@@ -63,12 +63,13 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
 
     // 2.5. Menu Pembelajaran & Ekskul Guru
     const teacherTeachingMenus = [
+        { id: 'teacher_schedule', label: 'Jadwal Mengajar', icon: CalendarDays },
         { id: 'teacher_journal', label: 'Jurnal Mengajar', icon: BookOpen },
+        { id: 'teacher_subject_attendance', label: 'Presensi Mapel', icon: CheckSquare },
         { id: 'teacher_ekskul', label: 'Ekskul Binaan', icon: Award },
         { id: 'teacher_absence', label: isPenanggungJawab ? 'Izin & Pengganti' : 'Izin Mengajar', icon: FileText },
     ];
     const visibleTeacherTeachingMenus = teacherTeachingMenus.filter(item => {
-        if (item.id === 'teacher_journal') return !!currentUser?.teacher?.has_teaching_schedule;
         if (item.id === 'teacher_ekskul') return !!currentUser?.teacher?.is_mentor;
         return true;
     });

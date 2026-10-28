@@ -116,6 +116,29 @@ if (!memberColumns.some((column) => column.name === 'password_hash')) db.exec('A
 if (!memberColumns.some((column) => column.name === 'portal_managed_credentials')) db.exec('ALTER TABLE members ADD COLUMN portal_managed_credentials INTEGER NOT NULL DEFAULT 0');
 const teacherColumns = db.prepare('PRAGMA table_info(teachers)').all();
 if (!teacherColumns.some((column) => column.name === 'portal_managed_credentials')) db.exec('ALTER TABLE teachers ADD COLUMN portal_managed_credentials INTEGER NOT NULL DEFAULT 0');
+
+// Biodata lengkap yang kompatibel dengan database Portal versi lama.
+const teacherProfileColumns = {
+  nuptk: 'TEXT', gender: 'TEXT', birth_place: 'TEXT', birth_date: 'TEXT',
+  religion: 'TEXT', address: 'TEXT', email: 'TEXT', education: 'TEXT',
+  employment_status: 'TEXT', rank_grade: 'TEXT', tmt: 'TEXT'
+};
+for (const [name, type] of Object.entries(teacherProfileColumns)) {
+  if (!teacherColumns.some((column) => column.name === name)) {
+    db.exec(`ALTER TABLE teachers ADD COLUMN ${name} ${type}`);
+  }
+}
+const memberProfileColumns = {
+  birth_place: 'TEXT', birth_date: 'TEXT', religion: 'TEXT', address: 'TEXT',
+  email: 'TEXT', nationality: 'TEXT', child_order: 'INTEGER', siblings_count: 'INTEGER',
+  previous_school: 'TEXT', admission_date: 'TEXT', guardian_name: 'TEXT',
+  guardian_relation: 'TEXT', guardian_phone: 'TEXT'
+};
+for (const [name, type] of Object.entries(memberProfileColumns)) {
+  if (!memberColumns.some((column) => column.name === name)) {
+    db.exec(`ALTER TABLE members ADD COLUMN ${name} ${type}`);
+  }
+}
 db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_username ON members (username COLLATE NOCASE) WHERE username IS NOT NULL AND TRIM(username) != ''");
 
 // 6. Master Jadwal Pelajaran (Teaching Schedules)
