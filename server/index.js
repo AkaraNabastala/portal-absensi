@@ -1486,7 +1486,7 @@ app.post('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
         }
         const nisn = String(req.body.nisn).trim();
         const nipd = String(req.body.nipd || '').trim();
-        if (db.prepare('SELECT id FROM members WHERE nisn = ? OR (? != '' AND nipd = ?)').get(nisn, nipd, nipd)) return res.status(409).json({ success: false, message: 'NISN atau NIPD siswa sudah terdaftar.' });
+        if (db.prepare("SELECT id FROM members WHERE nisn = ? OR (? != '' AND nipd = ?)").get(nisn, nipd, nipd)) return res.status(409).json({ success: false, message: 'NISN atau NIPD siswa sudah terdaftar.' });
         const result = db.prepare(`INSERT INTO members (nisn, nipd, username, password_hash, full_name, division, parent_pin_hash, role, status)
             VALUES (?, ?, ?, ?, ?, ?, NULL, 'siswa', 'ACTIVE')`).run(
             nisn, nipd || null, username, bcrypt.hashSync(password, 12), fullName, division
