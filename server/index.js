@@ -1286,6 +1286,60 @@ app.post('/api/admin/absence-requests/:id/assign', requireAuth, (req, res) => {
     res.json({ success: true, message: `${substitute.full_name} ditetapkan sebagai guru pengganti.` });
 });
 
+// Biodata guru menggunakan tabel teachers; jangan arahkan guru ke endpoint biodata siswa.
+app.get('/api/teacher/personal-details/:teacherId', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
+    const teacherId = Number(req.params.teacherId);
+    if (!Number.isInteger(teacherId) || teacherId < 1) {
+        return res.status(400).json({ success: false, message: 'ID guru tidak valid.' });
+    }
+    if (req.user.role === 'TEACHER' && Number(req.user.userId) !== teacherId) {
+        return res.status(403).json({ success: false, message: 'Guru hanya dapat melihat biodatanya sendiri.' });
+    }
+    const teacher = db.prepare(`
+        SELECT id, nip, nik, nuptk, username, full_name, gender, birth_place, birth_date,
+               religion, address, email, education, employment_status, rank_grade, tmt,
+               assigned_division, role, photo_url, phone_number, status, created_at
+        FROM teachers WHERE id = ?
+    `).get(teacherId);
+    if (!teacher) return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
+    res.json({
+        success: true, student: teacher, teacher,
+        todayLog: null, logs: [], leaves: [],
+        stats: { hadir: 0, terlambat: 0, izin: 0, sakit: 0, alpa: 0 },
+        attendancePercentage: 100,
+        currentMonth: new Date().toISOString().slice(0, 7)
+    });
+});
+
+app.put('/api/teacher/personal-details/:teacherId', requireAuth, requireRole('TEACHER', 'ADMIN'), (req, res) => {
+    const teacherId = Number(req.params.teacherId);
+    if (!Number.isInteger(teacherId) || teacherId < 1) {
+        return res.status(400).json({ success: false, message: 'ID guru tidak valid.' });
+    }
+    if (req.user.role === 'TEACHER' && Number(req.user.userId) !== teacherId) {
+        return res.status(403).json({ success: false, message: 'Guru hanya dapat mengubah biodatanya sendiri.' });
+    }
+    const allowed = ['full_name', 'nik', 'nuptk', 'gender', 'birth_place', 'birth_date', 'religion',
+        'address', 'email', 'phone_number', 'education', 'employment_status', 'rank_grade', 'tmt'];
+    const updates = allowed.filter((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key));
+    if (!updates.length) return res.status(400).json({ success: false, message: 'Tidak ada data biodata yang dikirim.' });
+    const values = updates.map((key) => {
+        const value = req.body[key];
+        return value === null || value === undefined || String(value).trim() === '' ? null : String(value).trim();
+    });
+    const exists = db.prepare('SELECT id FROM teachers WHERE id = ?').get(teacherId);
+    if (!exists) return res.status(404).json({ success: false, message: 'Data guru tidak ditemukan.' });
+    db.prepare(`UPDATE teachers SET ${updates.map((key) => `${key} = ?`).join(', ')} WHERE id = ?`).run(...values, teacherId);
+    const teacher = db.prepare(`
+        SELECT id, nip, nik, nuptk, username, full_name, gender, birth_place, birth_date,
+               religion, address, email, education, employment_status, rank_grade, tmt,
+               assigned_division, role, photo_url, phone_number, status, created_at
+        FROM teachers WHERE id = ?
+    `).get(teacherId);
+    logAudit(db, req, 'UPDATE_TEACHER_PROFILE', 'teachers', teacherId, 'Biodata guru diperbarui');
+    res.json({ success: true, message: 'Biodata guru berhasil diperbarui.', teacher, student: teacher });
+});
+
 app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details/:studentId'], requireAuth, (req, res) => {
     const { studentId } = req.params;
     const today = new Date().toISOString().split('T')[0];
@@ -1296,7 +1350,7 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
         return res.status(403).json({ success: false, message: 'Akses ditolak.' });
     }
 
-    const student = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, division, parent_name, parent_phone, phone_number, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
+    const student = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, birth_place, birth_date, religion, address, email, nationality, child_order, siblings_count, previous_school, admission_date, division, parent_name, parent_phone, guardian_name, guardian_relation, guardian_phone, phone_number, telegram_chat_id, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
     if (!student) {
         return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
     }
@@ -1331,6 +1385,40 @@ app.get(['/api/parent/student-details/:studentId', '/api/member/personal-details
         attendancePercentage: pct,
         currentMonth: month
     });
+});
+
+app.put('/api/member/personal-details/:studentId', requireAuth, (req, res) => {
+    const studentId = Number(req.params.studentId);
+    if (!Number.isInteger(studentId) || studentId < 1) return res.status(400).json({ success: false, message: 'ID siswa tidak valid.' });
+    if (req.user.role === 'PARENT' && Number(req.user.userId) !== studentId) {
+        return res.status(403).json({ success: false, message: 'Wali hanya dapat mengubah biodata siswa yang terhubung ke akunnya.' });
+    }
+    const student = db.prepare('SELECT id, division FROM members WHERE id = ?').get(studentId);
+    if (!student) return res.status(404).json({ success: false, message: 'Data siswa tidak ditemukan.' });
+    if (req.user.role === 'TEACHER' && !canAccessDivision(req, student.division)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak: siswa ini bukan dari kelas binaan Anda.' });
+    }
+    if (!['PARENT', 'TEACHER', 'ADMIN'].includes(req.user.role)) {
+        return res.status(403).json({ success: false, message: 'Akses ditolak.' });
+    }
+    const allowed = ['full_name', 'gender', 'birth_place', 'birth_date', 'religion', 'address', 'email',
+        'phone_number', 'parent_name', 'parent_phone', 'guardian_name', 'guardian_relation',
+        'guardian_phone', 'nationality', 'child_order', 'siblings_count', 'previous_school', 'admission_date'];
+    const updates = allowed.filter((key) => Object.prototype.hasOwnProperty.call(req.body || {}, key));
+    if (!updates.length) return res.status(400).json({ success: false, message: 'Tidak ada data biodata yang dikirim.' });
+    const values = updates.map((key) => {
+        const value = req.body[key];
+        if (value === null || value === undefined || String(value).trim() === '') return null;
+        if (['child_order', 'siblings_count'].includes(key)) {
+            const number = Number(value);
+            return Number.isInteger(number) && number >= 0 ? number : null;
+        }
+        return String(value).trim();
+    });
+    db.prepare(`UPDATE members SET ${updates.map((key) => `${key} = ?`).join(', ')} WHERE id = ?`).run(...values, studentId);
+    const updated = db.prepare('SELECT id, barcode_id, nipd, nisn, full_name, gender, birth_place, birth_date, religion, address, email, nationality, child_order, siblings_count, previous_school, admission_date, division, parent_name, parent_phone, guardian_name, guardian_relation, guardian_phone, phone_number, telegram_chat_id, photo_url, role, status, created_at FROM members WHERE id = ?').get(studentId);
+    logAudit(db, req, 'UPDATE_STUDENT_PROFILE', 'members', studentId, 'Biodata siswa diperbarui');
+    res.json({ success: true, message: 'Biodata siswa berhasil diperbarui.', student: updated });
 });
 
 // Pengajuan Izin Siswa
