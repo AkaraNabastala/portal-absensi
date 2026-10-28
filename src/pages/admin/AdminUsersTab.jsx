@@ -12,6 +12,8 @@ export default function AdminUsersTab() {
   const [kind, setKind] = React.useState('ALL');
   const [busy, setBusy] = React.useState('');
   const [notice, setNotice] = React.useState(null);
+  const [createOpen, setCreateOpen] = React.useState(false);
+  const [createForm, setCreateForm] = React.useState({ user_type: 'STUDENT', full_name: '', nip: '', nisn: '', nipd: '', division: '', username: '', password: '' });
   const [forms, setForms] = React.useState({});
   const [profileForms, setProfileForms] = React.useState({});
   const [profileOpen, setProfileOpen] = React.useState({});
@@ -57,6 +59,26 @@ export default function AdminUsersTab() {
   };
 
   React.useEffect(() => { loadUsers(); }, []);
+
+  const createUser = async event => {
+    event.preventDefault();
+    setBusy('create-user');
+    setNotice(null);
+    try {
+      const res = await authFetch('/api/admin/users', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(createForm)
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || 'Akun gagal dibuat.');
+      setNotice({ type: 'success', text: data.message });
+      setCreateOpen(false);
+      setCreateForm({ user_type: 'STUDENT', full_name: '', nip: '', nisn: '', nipd: '', division: '', username: '', password: '' });
+      await loadUsers();
+    } catch (error) {
+      setNotice({ type: 'error', text: error.message || 'Akun gagal dibuat.' });
+    } finally { setBusy(''); }
+  };
 
   const updateForm = (key, field, value) => setForms(prev => ({ ...prev, [key]: { ...(prev[key] || {}), [field]: value } }));
 
@@ -176,10 +198,24 @@ export default function AdminUsersTab() {
     <section className="rounded-2xl border border-sky-100 bg-gradient-to-br from-sky-50 via-white to-blue-50 p-5 sm:p-7">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3"><span className="rounded-xl bg-sky-100 p-3 text-sky-800"><Users size={22} /></span><div><h2 className="text-xl font-extrabold text-slate-900">Manajemen Users</h2><p className="mt-1 max-w-2xl text-sm text-slate-600">Kelola data guru dan siswa. Username login dikelola admin dan terpisah dari NIP, NIPD, atau NISN.</p></div></div>
-        <button onClick={loadUsers} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Muat ulang</button>
+        <div className="flex gap-2"><button type="button" onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-2 rounded-xl bg-sky-700 px-3 py-2 text-sm font-bold text-white">+ Tambah pengguna</button><button onClick={loadUsers} disabled={loading} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 disabled:opacity-50"><RefreshCw size={15} className={loading ? 'animate-spin' : ''} /> Muat ulang</button></div>
       </div>
     </section>
 
+    {createOpen && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" role="dialog" aria-modal="true" aria-labelledby="create-user-title">
+      <form onSubmit={createUser} className="max-h-[90vh] w-full max-w-2xl space-y-4 overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl sm:p-7">
+        <div className="flex items-start justify-between gap-3"><div><h3 id="create-user-title" className="text-xl font-extrabold text-slate-900">Tambah pengguna</h3><p className="mt-1 text-sm text-slate-500">Buat akun guru atau siswa. Username login tidak harus sama dengan NIP, NIPD, atau NISN.</p></div><button type="button" onClick={() => setCreateOpen(false)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">Tutup</button></div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-semibold text-slate-700">Jenis pengguna<select className={inputClass+' mt-1'} value={createForm.user_type} onChange={e=>setCreateForm(p=>({...p,user_type:e.target.value}))}><option value="STUDENT">Siswa</option><option value="TEACHER">Guru / Tendik</option></select></label>
+          <label className="text-sm font-semibold text-slate-700">Nama lengkap<input className={inputClass+' mt-1'} required minLength={2} maxLength={100} value={createForm.full_name} onChange={e=>setCreateForm(p=>({...p,full_name:e.target.value}))}/></label>
+          {createForm.user_type === 'TEACHER' ? <label className="text-sm font-semibold text-slate-700">NIP / identitas guru<input className={inputClass+' mt-1'} required value={createForm.nip} onChange={e=>setCreateForm(p=>({...p,nip:e.target.value}))}/></label> : <><label className="text-sm font-semibold text-slate-700">NISN<input className={inputClass+' mt-1'} required value={createForm.nisn} onChange={e=>setCreateForm(p=>({...p,nisn:e.target.value}))}/></label><label className="text-sm font-semibold text-slate-700">NIPD (opsional)<input className={inputClass+' mt-1'} value={createForm.nipd} onChange={e=>setCreateForm(p=>({...p,nipd:e.target.value}))}/></label></>}
+          <label className="text-sm font-semibold text-slate-700">Kelas / rombel{createForm.user_type==='STUDENT'?' (wajib)':' binaan (opsional)'}<input className={inputClass+' mt-1'} required={createForm.user_type==='STUDENT'} value={createForm.division} onChange={e=>setCreateForm(p=>({...p,division:e.target.value}))}/></label>
+          <label className="text-sm font-semibold text-slate-700">Username login<input className={inputClass+' mt-1'} required minLength={3} maxLength={80} autoComplete="off" value={createForm.username} onChange={e=>setCreateForm(p=>({...p,username:e.target.value}))}/></label>
+          <label className="text-sm font-semibold text-slate-700 sm:col-span-2">Password awal (minimal 12 karakter)<input className={inputClass+' mt-1'} type="password" required minLength={12} maxLength={200} autoComplete="new-password" value={createForm.password} onChange={e=>setCreateForm(p=>({...p,password:e.target.value}))}/></label>
+        </div>
+        <div className="flex justify-end gap-2"><button type="button" onClick={()=>setCreateOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold">Batal</button><button disabled={busy==='create-user'} className="rounded-xl bg-sky-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy==='create-user'?'Membuat…':'Buat pengguna'}</button></div>
+      </form>
+    </div>}
     {notice && <div role="status" className={`rounded-xl border px-4 py-3 text-sm ${notice.type === 'error' ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>{notice.text}</div>}
     {pendingImport && <section className="rounded-xl border border-sky-200 bg-sky-50 p-4 text-sm text-slate-800">
       <div className="flex flex-wrap items-start justify-between gap-3"><div><h3 className="font-extrabold">Pratinjau import Excel</h3><p className="mt-1 text-xs text-slate-600">{pendingImport.fileName} · {pendingImport.records.length} baris. Tidak ada password/PIN yang diimpor.</p></div><div className="flex gap-2"><button type="button" onClick={() => setPendingImport(null)} disabled={importing} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold">Batal</button><button type="button" onClick={confirmImport} disabled={importing} className="rounded-lg bg-sky-800 px-3 py-2 text-xs font-bold text-white disabled:opacity-50">{importing ? 'Menyimpan…' : 'Konfirmasi import'}</button></div></div>
