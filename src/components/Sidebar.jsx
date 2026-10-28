@@ -31,11 +31,14 @@ export default function Sidebar({ currentUser, activeTab, setActiveTab, onLogout
 
     // 0. Menu Khusus Administrator
     const adminMenus = [
-        { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
-        { id: 'users', label: 'Users', icon: Users },
+        { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
+        { id: 'users', label: 'Users (Guru & Siswa)', icon: Users },
+        { id: 'admin_profile', label: 'Profil Admin', icon: User },
         { id: 'admin_schedules', label: 'Jadwal & Guru Mapel', icon: CalendarDays },
         { id: 'admin_journals', label: 'Monitoring Jurnal', icon: BookOpen },
-        { id: 'ekskul', label: 'Ekskul & Pembina', icon: Users },
+        { id: 'subject_attendance', label: 'Presensi Mapel', icon: BookOpen },
+        { id: 'attendance_monitoring', label: 'Monitoring Kehadiran', icon: CheckSquare },
+        { id: 'ekskul', label: 'Monitoring Ekskul', icon: Award },
         { id: 'sync', label: 'Cloud Sync', icon: FileText },
         { id: 'substitutes', label: 'Izin & Pengganti', icon: Users },
     ];
