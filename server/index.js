@@ -1443,7 +1443,7 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
         `).all();
         const students = db.prepare(`
             SELECT id, 'STUDENT' AS user_type, full_name,
-                   COALESCE(NULLIF(username, ''), NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
+                   COALESCE(NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
                    nisn, nipd, username, role, division, phone_number, address, email, birth_date, gender, parent_name, parent_phone, barcode_id, status,
                    CASE WHEN (password_hash IS NOT NULL AND password_hash != '') OR (parent_pin_hash IS NOT NULL AND parent_pin_hash != '') THEN 1 ELSE 0 END AS credential_configured
             FROM members WHERE lower(role) IN ('siswa','student','murid') ORDER BY full_name COLLATE NOCASE
