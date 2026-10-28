@@ -28,9 +28,11 @@ function PortalLayout({ currentUser, onLogout, schoolInfo }) {
 
   const fetchPersonalData = async (memberId, monthParam) => {
     try {
-      const url = monthParam 
-        ? `/api/member/personal-details/${memberId}?month=${monthParam}`
+      const isTeacher = currentUser?.role === 'TEACHER';
+      const baseUrl = isTeacher
+        ? `/api/teacher/personal-details/${memberId}`
         : `/api/member/personal-details/${memberId}`;
+      const url = monthParam && !isTeacher ? `${baseUrl}?month=${monthParam}` : baseUrl;
       const res = await authFetch(url);
       const data = await res.json();
       if (data.success) {
