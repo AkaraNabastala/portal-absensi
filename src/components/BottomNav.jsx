@@ -42,11 +42,11 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
 
     // 0. Menu Navigasi Utama untuk Administrator
     const adminPrimaryItems = [
-        { id: 'overview', label: 'Beranda', icon: LayoutDashboard },
+        { id: 'overview', label: 'Dashboard', icon: LayoutDashboard },
         { id: 'admin_schedules', label: 'Jadwal', icon: CalendarDays },
         { id: 'admin_journals', label: 'Jurnal', icon: BookOpen },
-        { id: 'ekskul', label: 'Ekskul', icon: Users },
-        { id: 'sync', label: 'Sync', icon: FileText },
+        { id: 'attendance_monitoring', label: 'Hadir', icon: CheckSquare },
+        { id: 'more', label: 'Lainnya', icon: MoreHorizontal, isAction: true },
     ];
 
     // 1. Menu Navigasi Utama untuk Siswa / Wali Murid
@@ -79,7 +79,16 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
     const assignedClass = currentUser?.teacher?.assigned_division || 'Binaan';
 
     // Menu tambahan yang tampil di popup drawer "Lainnya" (...)
-    const drawerItems = isStudent ? [
+    const drawerItems = isAdmin ? [
+        { section: 'Administrasi', items: [
+            { id: 'users', label: 'Users Guru & Siswa', desc: 'Kelola data dan kredensial login', icon: Users },
+            { id: 'admin_profile', label: 'Profil Admin', desc: 'Atur username dan password admin', icon: User },
+            { id: 'subject_attendance', label: 'Presensi Mapel', desc: 'Monitoring presensi setiap pelajaran', icon: BookOpen },
+            { id: 'ekskul', label: 'Monitoring Ekskul', desc: 'Pantau kegiatan ekstrakurikuler', icon: Award },
+            { id: 'sync', label: 'Cloud Sync', desc: 'Status sinkronisasi data', icon: FileText },
+            { id: 'substitutes', label: 'Izin & Guru Pengganti', desc: 'Kelola pengajuan dan pengganti', icon: CheckSquare },
+        ]}
+    ] : isStudent ? [
         {
             section: 'Menu Siswa / Wali Murid',
             items: [
@@ -122,7 +131,7 @@ export default function BottomNav({ currentUser, activeTab, setActiveTab }) {
     }
 
     // Tab yang berada di dalam popup drawer "Lainnya"
-    const moreTabIds = ['leave', 'profile', 'class_daily', 'class_monthly', 'class_leave', 'class_students'];
+    const moreTabIds = ['leave', 'profile', 'class_daily', 'class_monthly', 'class_leave', 'class_students', 'users', 'admin_profile', 'subject_attendance', 'ekskul', 'sync', 'substitutes'];
     const isTabInMore = moreTabIds.includes(activeTab);
 
     const activeIndex = items.findIndex(i => {
