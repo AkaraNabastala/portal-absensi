@@ -2388,7 +2388,10 @@ app.post('/api/sync/push-members', (req, res) => {
                     /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(String(m.login_password_hash || ''))
                 );
                 if (hasLoginCredentials) teachersWithLoginCredentials++;
-                else teachersWithoutLoginCredentials++;
+                else {
+                    const existingTeacherAccount = db.prepare('SELECT portal_managed_credentials FROM teachers WHERE nip = ? LIMIT 1').get(nip);
+                    if (Number(existingTeacherAccount?.portal_managed_credentials || 0) !== 1) teachersWithoutLoginCredentials++;
+                }
                 const uname = hasLoginCredentials ? String(m.login_username).trim() : `guru.${usernameSuffix}`;
                 const passwordHash = hasLoginCredentials ? String(m.login_password_hash) : defaultGuruPass;
                 upsertTeacher.run(
@@ -2455,7 +2458,7 @@ app.post('/api/sync/push-members', (req, res) => {
     tx();
     console.info(`[Portal Sync Members] Selesai: ${syncedIds.length} tersinkron, ${skipped} dilewati, ${deactivatedStudents} siswa dinonaktifkan, ${deactivatedTeachers} guru dinonaktifkan; akun guru dengan kredensial desktop=${teachersWithLoginCredentials}, tanpa kredensial=${teachersWithoutLoginCredentials}.`);
     if (teachersWithoutLoginCredentials > 0) {
-        console.warn(`[Portal Sync Members Warning] ${teachersWithoutLoginCredentials} akun guru tidak menerima kredensial dari desktop. Login guru tersebut tidak akan berhasil sampai akun login dibuat/diperbarui di Nebula Presence lalu disinkronkan ulang.`);
+        console.warn(`[Portal Sync Members Warning] ${teachersWithoutLoginCredentials} akun guru tidak menerima kredensial dari desktop. Guru tersebut belum menerima kredensial dari desktop dan belum memiliki kredensial yang dikelola Portal. Admin dapat membuka Portal > Users (Guru & Siswa) untuk menetapkan username dan password.`);
     }
     res.json({
         success: skipped === 0,
