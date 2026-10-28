@@ -1623,8 +1623,9 @@ app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMI
             const teacher = db.prepare('SELECT id, full_name FROM teachers WHERE id = ?').get(id);
             if (!teacher) return res.status(404).json({ success: false, message: 'Akun guru tidak ditemukan.' });
             const collision = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) AND id != ?').get(username, id);
+            const studentCollision = db.prepare('SELECT id FROM members WHERE lower(username) = lower(?) LIMIT 1').get(username);
             const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
-            if (collision || adminCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
+            if (collision || studentCollision || adminCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
             db.prepare('UPDATE teachers SET username = ?, password_hash = ?, credentials_ready = 1 WHERE id = ?')
                 .run(username, bcrypt.hashSync(password, 12), id);
             logAudit(db, req, 'UPDATE_USER_CREDENTIALS', 'teachers', id, 'Admin memperbarui username/password guru');
@@ -1662,7 +1663,8 @@ app.put('/api/admin/account-credentials', requireAuth, requireRole('ADMIN'), (re
         return res.status(401).json({ success: false, message: 'Password saat ini tidak cocok.' });
     }
     const duplicate = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) LIMIT 1').get(username);
-    if (duplicate) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun guru.' });
+    const studentDuplicate = db.prepare('SELECT id FROM members WHERE lower(username) = lower(?) LIMIT 1').get(username);
+    if (duplicate || studentDuplicate) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
     try {
         db.prepare('UPDATE school_settings SET admin_username = ?, admin_password_hash = ?, updated_at = CURRENT_TIMESTAMP WHERE id = 1')
             .run(username, bcrypt.hashSync(newPassword, 12));
