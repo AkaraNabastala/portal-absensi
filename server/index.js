@@ -1476,8 +1476,8 @@ app.post('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
         if (type === 'TEACHER') {
             const nip = String(req.body.nip).trim();
             if (db.prepare('SELECT id FROM teachers WHERE nip = ?').get(nip)) return res.status(409).json({ success: false, message: 'NIP guru sudah terdaftar.' });
-            const result = db.prepare(`INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, status, credentials_ready)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', 1)`).run(
+            const result = db.prepare(`INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, status, credentials_ready, portal_managed_credentials)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', 1, 1)`).run(
                 nip, String(req.body.nik || '').trim() || null, username, bcrypt.hashSync(password, 12), fullName,
                 division || null, String(req.body.role || 'GURU').trim(), String(req.body.phone_number || '').trim() || null
             );
@@ -1487,8 +1487,8 @@ app.post('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
         const nisn = String(req.body.nisn).trim();
         const nipd = String(req.body.nipd || '').trim();
         if (db.prepare("SELECT id FROM members WHERE nisn = ? OR (? != '' AND nipd = ?)").get(nisn, nipd, nipd)) return res.status(409).json({ success: false, message: 'NISN atau NIPD siswa sudah terdaftar.' });
-        const result = db.prepare(`INSERT INTO members (nisn, nipd, username, password_hash, full_name, division, parent_pin_hash, role, status)
-            VALUES (?, ?, ?, ?, ?, ?, NULL, 'siswa', 'ACTIVE')`).run(
+        const result = db.prepare(`INSERT INTO members (nisn, nipd, username, password_hash, full_name, division, parent_pin_hash, role, status, portal_managed_credentials)
+            VALUES (?, ?, ?, ?, ?, ?, NULL, 'siswa', 'ACTIVE', 1)`).run(
             nisn, nipd || null, username, bcrypt.hashSync(password, 12), fullName, division
         );
         logAudit(db, req, 'CREATE_USER', 'members', result.lastInsertRowid, 'Admin membuat akun siswa');
@@ -1626,7 +1626,7 @@ app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMI
             const studentCollision = db.prepare('SELECT id FROM members WHERE lower(username) = lower(?) LIMIT 1').get(username);
             const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
             if (collision || studentCollision || adminCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
-            db.prepare('UPDATE teachers SET username = ?, password_hash = ?, credentials_ready = 1 WHERE id = ?')
+            db.prepare('UPDATE teachers SET username = ?, password_hash = ?, credentials_ready = 1, portal_managed_credentials = 1 WHERE id = ?')
                 .run(username, bcrypt.hashSync(password, 12), id);
             logAudit(db, req, 'UPDATE_USER_CREDENTIALS', 'teachers', id, 'Admin memperbarui username/password guru');
             return res.json({ success: true, message: 'Kredensial guru berhasil diperbarui.' });
@@ -1640,7 +1640,7 @@ app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMI
             const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
             const studentCollision = db.prepare("SELECT id FROM members WHERE lower(username) = lower(?) AND id != ? LIMIT 1").get(username, id);
             if (teacherCollision || adminCollision || studentCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
-            db.prepare('UPDATE members SET username = ?, password_hash = ? WHERE id = ?').run(username, bcrypt.hashSync(password, 12), id);
+            db.prepare('UPDATE members SET username = ?, password_hash = ?, portal_managed_credentials = 1 WHERE id = ?').run(username, bcrypt.hashSync(password, 12), id);
             logAudit(db, req, 'UPDATE_STUDENT_CREDENTIALS', 'members', id, 'Admin memperbarui username/password siswa');
             return res.json({ success: true, message: 'Username dan password siswa berhasil diperbarui.' });
         }
@@ -2351,8 +2351,8 @@ app.post('/api/sync/push-members', (req, res) => {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')
         ON CONFLICT(nip) DO UPDATE SET
             nik = excluded.nik,
-            username = CASE WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
-            password_hash = CASE WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
+            username = CASE WHEN teachers.portal_managed_credentials = 1 THEN teachers.username WHEN ? = 1 THEN excluded.username ELSE teachers.username END,
+            password_hash = CASE WHEN teachers.portal_managed_credentials = 1 THEN teachers.password_hash WHEN ? = 1 THEN excluded.password_hash ELSE teachers.password_hash END,
             full_name = excluded.full_name,
             assigned_division = COALESCE(excluded.assigned_division, teachers.assigned_division),
             role = excluded.role,
