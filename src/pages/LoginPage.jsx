@@ -190,7 +190,7 @@ export default function LoginPage({ onLoginSuccess }) {
                         {/* Input 1: NISN / NIP */}
                         <div>
                             <label className="block text-sm font-semibold text-slate-700 mb-1.5 tracking-wide">
-                                {setupRequired ? 'Username Admin' : 'ID Pengguna (NISN / NIP)'}
+                                {setupRequired ? 'Username Admin' : 'Username / ID Pengguna'}
                             </label>
                             <div className="relative group">
                                 <input
@@ -198,7 +198,7 @@ export default function LoginPage({ onLoginSuccess }) {
                                     required
                                     value={identifier}
                                     onChange={(e) => setIdentifier(e.target.value)}
-                                    placeholder={setupRequired ? "Buat username admin" : "Masukkan NISN / NIP / ID Anda"}
+                                    placeholder={setupRequired ? "Buat username admin" : "Masukkan username, NISN, atau NIP"}
                                     className="w-full bg-[#f7fafc] hover:bg-sky-50 focus:bg-white border border-[#dce8f2] focus:border-sky-500 focus:ring-4 focus:ring-sky-500/10 rounded-xl pl-11 pr-4 py-3.5 text-sm text-slate-800 placeholder-slate-400 outline-none transition-all font-medium"
                                 />
                                 <User className="w-4 h-4 text-slate-400 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none group-focus-within:text-sky-700 transition-colors" />
