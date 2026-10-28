@@ -108,7 +108,7 @@ export default function AdminDashboard({
     return (
         <div className="space-y-6">
             {activeTab === 'users' && <AdminUsersTab />}
-            {activeTab === 'admin_profile' && <AdminProfileTab currentUser={currentUser} />
+            {activeTab === 'admin_profile' && <AdminProfileTab currentUser={currentUser} />}
             {activeTab === 'subject_attendance' && <AdminSubjectAttendanceTab />}
             {activeTab === 'attendance_monitoring' && <AdminAttendanceMonitoringTab />}
 
