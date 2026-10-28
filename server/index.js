@@ -1633,6 +1633,39 @@ app.put('/api/admin/account-credentials', requireAuth, requireRole('ADMIN'), (re
 });
 
 // Admin: Ambil daftar seluruh rombel / kelas
+// Admin: Monitoring presensi per mata pelajaran dari jurnal mengajar.
+app.get('/api/admin/subject-attendance', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const date = String(req.query.date || '').trim();
+    const rows = db.prepare(`
+        SELECT a.id, j.date, j.division, j.subject_name, j.topic,
+               m.full_name AS student_name, a.status, a.note,
+               t.full_name AS teacher_name
+        FROM teacher_journal_attendance a
+        JOIN teacher_journals j ON j.id = a.journal_id
+        JOIN members m ON m.id = a.member_id
+        LEFT JOIN teachers t ON t.id = j.teacher_id
+        WHERE (? = '' OR j.date = ?)
+        ORDER BY j.date DESC, j.division COLLATE NOCASE, j.subject_name COLLATE NOCASE, m.full_name COLLATE NOCASE
+        LIMIT 2000
+    `).all(date, date);
+    res.json({ success: true, data: rows });
+});
+
+// Admin: Monitoring kehadiran gerbang berdasarkan tanggal.
+app.get('/api/admin/attendance-monitoring', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const date = String(req.query.date || '').trim();
+    const rows = db.prepare(`
+        SELECT a.id, a.date, a.time_in, a.time_out, a.status, a.device_gate,
+               m.full_name, m.division, m.nipd, m.nisn
+        FROM attendance_logs a
+        JOIN members m ON m.id = a.member_id
+        WHERE (? = '' OR a.date = ?)
+        ORDER BY a.date DESC, COALESCE(a.time_in, '') DESC, m.full_name COLLATE NOCASE
+        LIMIT 2000
+    `).all(date, date);
+    res.json({ success: true, data: rows });
+});
+
 app.get('/api/admin/divisions', requireAuth, requireRole('ADMIN'), (req, res) => {
     const divisions = db.prepare('SELECT id, name, supervisor_teacher_id, supervisor_name, academic_year FROM divisions ORDER BY name ASC').all();
     res.json({ success: true, data: divisions });
