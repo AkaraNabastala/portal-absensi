@@ -109,6 +109,12 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_members_nisn ON members (nisn);
 `);
 
+// Kredensial Portal siswa dikelola admin dan terpisah dari NISN/NIPD.
+const memberColumns = db.prepare('PRAGMA table_info(members)').all();
+if (!memberColumns.some((column) => column.name === 'username')) db.exec('ALTER TABLE members ADD COLUMN username TEXT');
+if (!memberColumns.some((column) => column.name === 'password_hash')) db.exec('ALTER TABLE members ADD COLUMN password_hash TEXT');
+db.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_members_username ON members (username COLLATE NOCASE) WHERE username IS NOT NULL AND TRIM(username) != ''");
+
 // 6. Master Jadwal Pelajaran (Teaching Schedules)
 db.exec(`
   CREATE TABLE IF NOT EXISTS teaching_schedules (
