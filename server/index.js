@@ -389,18 +389,17 @@ app.post('/api/auth/login', (req, res) => {
 
     // C. Cek Login Siswa / Wali Murid
     const student = db.prepare(`
-        SELECT id, barcode_id, nipd, nisn, full_name, gender, division, parent_pin_hash, parent_name, parent_phone, photo_url, role, status
+        SELECT id, barcode_id, nipd, nisn, username, password_hash, full_name, gender, division, parent_pin_hash, parent_name, parent_phone, photo_url, role, status
         FROM members
-        WHERE (nisn = ? OR nipd = ? OR barcode_id = ?) AND status = 'ACTIVE'
-    `).get(cleanId, cleanId, cleanId);
+        WHERE (username = ? COLLATE NOCASE OR nisn = ? OR nipd = ? OR barcode_id = ?) AND status = 'ACTIVE'
+    `).get(cleanId, cleanId, cleanId, cleanId);
 
     if (student) {
-        // Hanya PIN yang cocok dengan hash tersimpan yang boleh diterima.
-        // Tidak ada PIN bawaan seperti 123456/1234 karena dapat membuka akun orang lain.
-        const pinValid = Boolean(
-            student.parent_pin_hash &&
-            bcrypt.compareSync(String(secret), student.parent_pin_hash)
-        );
+        // Akun baru memakai username/password. Login identitas + PIN lama tetap didukung
+        // agar pengguna lama tidak terkunci sampai admin selesai memigrasikan kredensial.
+        const passwordValid = Boolean(student.password_hash && bcrypt.compareSync(String(secret), student.password_hash));
+        const legacyPinValid = Boolean(student.parent_pin_hash && bcrypt.compareSync(String(secret), student.parent_pin_hash));
+        const pinValid = passwordValid || legacyPinValid;
 
         if (pinValid) {
             const studentPayload = {
@@ -1444,9 +1443,9 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
         `).all();
         const students = db.prepare(`
             SELECT id, 'STUDENT' AS user_type, full_name,
-                   COALESCE(NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
-                   nisn, nipd, NULL AS username, role, division, phone_number, address, email, birth_date, gender, parent_name, parent_phone, barcode_id, status,
-                   CASE WHEN parent_pin_hash IS NOT NULL AND parent_pin_hash != '' THEN 1 ELSE 0 END AS credential_configured
+                   COALESCE(NULLIF(username, ''), NULLIF(nisn, ''), NULLIF(nipd, ''), barcode_id) AS identifier,
+                   nisn, nipd, username, role, division, phone_number, address, email, birth_date, gender, parent_name, parent_phone, barcode_id, status,
+                   CASE WHEN (password_hash IS NOT NULL AND password_hash != '') OR (parent_pin_hash IS NOT NULL AND parent_pin_hash != '') THEN 1 ELSE 0 END AS credential_configured
             FROM members WHERE lower(role) IN ('siswa','student','murid') ORDER BY full_name COLLATE NOCASE
         `).all();
         return res.json({ success: true, data: [...teachers, ...students] });
@@ -1588,14 +1587,17 @@ app.put('/api/admin/users/:type/:id/credentials', requireAuth, requireRole('ADMI
             return res.json({ success: true, message: 'Kredensial guru berhasil diperbarui.' });
         }
         if (type === 'STUDENT') {
-            if (!/^\d{6,12}$/.test(password) || ['123456','654321','000000','111111','222222','333333','444444','555555','666666','777777','888888','999999'].includes(password)) {
-                return res.status(400).json({ success: false, message: 'PIN siswa harus 6–12 digit dan tidak boleh mudah ditebak.' });
-            }
+            if (username.length < 3 || username.length > 80) return res.status(400).json({ success: false, message: 'Username siswa harus berisi 3–80 karakter.' });
+            if (password.length < 12 || password.length > 200) return res.status(400).json({ success: false, message: 'Password siswa minimal 12 karakter.' });
             const student = db.prepare("SELECT id, full_name, role FROM members WHERE id = ? AND lower(role) IN ('siswa','student','murid')").get(id);
             if (!student) return res.status(404).json({ success: false, message: 'Akun siswa tidak ditemukan.' });
-            db.prepare('UPDATE members SET parent_pin_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 12), id);
-            logAudit(db, req, 'RESET_STUDENT_PIN', 'members', id, 'Admin mereset PIN pribadi siswa/wali');
-            return res.json({ success: true, message: 'PIN siswa berhasil diperbarui.' });
+            const teacherCollision = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) LIMIT 1').get(username);
+            const adminCollision = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
+            const studentCollision = db.prepare("SELECT id FROM members WHERE lower(username) = lower(?) AND id != ? LIMIT 1").get(username, id);
+            if (teacherCollision || adminCollision || studentCollision) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
+            db.prepare('UPDATE members SET username = ?, password_hash = ? WHERE id = ?').run(username, bcrypt.hashSync(password, 12), id);
+            logAudit(db, req, 'UPDATE_STUDENT_CREDENTIALS', 'members', id, 'Admin memperbarui username/password siswa');
+            return res.json({ success: true, message: 'Username dan password siswa berhasil diperbarui.' });
         }
         return res.status(400).json({ success: false, message: 'Jenis akun tidak dikenal.' });
     } catch (error) {
