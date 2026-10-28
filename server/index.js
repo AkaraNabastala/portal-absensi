@@ -1455,6 +1455,50 @@ app.get('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
     }
 });
 
+// Admin: Buat akun guru atau siswa dari halaman Users.
+app.post('/api/admin/users', requireAuth, requireRole('ADMIN'), (req, res) => {
+    const type = String(req.body?.user_type || '').trim().toUpperCase();
+    const fullName = String(req.body?.full_name || '').trim();
+    const username = String(req.body?.username || '').trim();
+    const password = typeof req.body?.password === 'string' ? req.body.password : '';
+    const division = String(req.body?.division || '').trim();
+    if (!['TEACHER', 'STUDENT'].includes(type)) return res.status(400).json({ success: false, message: 'Pilih jenis akun guru atau siswa.' });
+    if (fullName.length < 2 || fullName.length > 100) return res.status(400).json({ success: false, message: 'Nama lengkap wajib berisi 2–100 karakter.' });
+    if (username.length < 3 || username.length > 80) return res.status(400).json({ success: false, message: 'Username wajib berisi 3–80 karakter.' });
+    if (password.length < 12 || password.length > 200) return res.status(400).json({ success: false, message: 'Password awal minimal 12 karakter.' });
+    if (type === 'TEACHER' && !String(req.body?.nip || '').trim()) return res.status(400).json({ success: false, message: 'NIP/identitas guru wajib diisi.' });
+    if (type === 'STUDENT' && (!String(req.body?.nisn || '').trim() || !division)) return res.status(400).json({ success: false, message: 'NISN dan kelas siswa wajib diisi.' });
+    const usernameUsedByTeacher = db.prepare('SELECT id FROM teachers WHERE lower(username) = lower(?) LIMIT 1').get(username);
+    const usernameUsedByStudent = db.prepare("SELECT id FROM members WHERE lower(username) = lower(?) LIMIT 1").get(username);
+    const usernameUsedByAdmin = db.prepare('SELECT 1 AS found FROM school_settings WHERE id = 1 AND lower(admin_username) = lower(?)').get(username);
+    if (usernameUsedByTeacher || usernameUsedByStudent || usernameUsedByAdmin) return res.status(409).json({ success: false, message: 'Username sudah digunakan akun lain.' });
+    try {
+        if (type === 'TEACHER') {
+            const nip = String(req.body.nip).trim();
+            if (db.prepare('SELECT id FROM teachers WHERE nip = ?').get(nip)) return res.status(409).json({ success: false, message: 'NIP guru sudah terdaftar.' });
+            const result = db.prepare(`INSERT INTO teachers (nip, nik, username, password_hash, full_name, assigned_division, role, phone_number, status, credentials_ready)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', 1)`).run(
+                nip, String(req.body.nik || '').trim() || null, username, bcrypt.hashSync(password, 12), fullName,
+                division || null, String(req.body.role || 'GURU').trim(), String(req.body.phone_number || '').trim() || null
+            );
+            logAudit(db, req, 'CREATE_USER', 'teachers', result.lastInsertRowid, 'Admin membuat akun guru');
+            return res.status(201).json({ success: true, message: 'Akun guru berhasil dibuat.', id: result.lastInsertRowid });
+        }
+        const nisn = String(req.body.nisn).trim();
+        const nipd = String(req.body.nipd || '').trim();
+        if (db.prepare('SELECT id FROM members WHERE nisn = ? OR (? != '' AND nipd = ?)').get(nisn, nipd, nipd)) return res.status(409).json({ success: false, message: 'NISN atau NIPD siswa sudah terdaftar.' });
+        const result = db.prepare(`INSERT INTO members (nisn, nipd, username, password_hash, full_name, division, parent_pin_hash, role, status)
+            VALUES (?, ?, ?, ?, ?, ?, NULL, 'siswa', 'ACTIVE')`).run(
+            nisn, nipd || null, username, bcrypt.hashSync(password, 12), fullName, division
+        );
+        logAudit(db, req, 'CREATE_USER', 'members', result.lastInsertRowid, 'Admin membuat akun siswa');
+        return res.status(201).json({ success: true, message: 'Akun siswa berhasil dibuat.', id: result.lastInsertRowid });
+    } catch (error) {
+        console.error('[USERS][CREATE] Gagal membuat akun:', error.message);
+        return res.status(500).json({ success: false, message: 'Akun gagal dibuat. Periksa kemungkinan data duplikat dan log server.' });
+    }
+});
+
 // Import workbook Excel dari halaman Users. Tidak menerima atau mengekspor password/PIN.
 app.post('/api/admin/users/import', requireAuth, requireRole('ADMIN'), (req, res) => {
     const records = Array.isArray(req.body?.records) ? req.body.records : [];
